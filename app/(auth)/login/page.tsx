@@ -117,7 +117,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-white/40 text-xs mt-6">
-          © 2025 LVIF Group — Usage interne uniquement
+          © 2026 LVIF Group — Usage interne uniquement
         </p>
       </div>
     </div>
