@@ -49,14 +49,15 @@ export default async function CommercialPage() {
     .select("*, profiles(full_name)")
     .eq("next_action_date", today)
     .not("status", "in", '("gagne","perdu")')
-    .order("priority", { ascending: false });
+    .order("amount", { ascending: false });
 
   // Tous les deals actifs
-  const { data: activeDeals } = await supabase
+  const { data: activeDealsRaw } = await supabase
     .from("deals")
     .select("amount")
     .not("status", "in", '("gagne","perdu")');
 
+  const activeDeals = activeDealsRaw as Array<{ amount: number | null }> | null;
   const totalPipeline = activeDeals?.reduce((s, d) => s + (d.amount || 0), 0) || 0;
 
   return (
