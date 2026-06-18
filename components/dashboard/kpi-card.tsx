@@ -7,11 +7,12 @@ interface KpiCardProps {
   subtitle?: string;
   icon?: LucideIcon;
   iconColor?: string;
+  iconBg?: string;
   trend?: {
     value: number;
     label?: string;
     direction: "up" | "down" | "neutral";
-    positive?: boolean; // up = bon ou up = mauvais selon le KPI
+    positive?: boolean;
   };
   alert?: boolean;
   className?: string;
@@ -22,60 +23,83 @@ export function KpiCard({
   value,
   subtitle,
   icon: Icon,
-  iconColor = "text-brand-600",
+  iconColor = "text-[#3b5ef5]",
+  iconBg = "bg-[#3b5ef5]/10",
   trend,
   alert,
   className,
 }: KpiCardProps) {
-  const trendColor =
+  const trendIsGood =
     trend?.direction === "neutral"
-      ? "text-gray-500"
+      ? null
       : trend?.direction === "up"
       ? trend.positive !== false
-        ? "text-emerald-600"
-        : "text-red-600"
-      : trend?.positive !== false
-      ? "text-red-600"
-      : "text-emerald-600";
-
-  const trendArrow = trend?.direction === "up" ? "↑" : trend?.direction === "down" ? "↓" : "→";
+      : trend?.positive === false;
 
   return (
     <div
       className={cn(
-        "bg-white rounded-xl border p-5 flex flex-col gap-3 hover:shadow-md transition-shadow",
-        alert && "border-red-200 bg-red-50/30",
+        "bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-4 hover:border-gray-200 hover:shadow-sm transition-all duration-150",
+        alert && "border-red-100 bg-red-50/20",
         className
       )}
     >
+      {/* Top row */}
       <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-gray-600 leading-tight">{title}</p>
         {Icon && (
-          <div className={cn("p-2 rounded-lg bg-gray-50", alert && "bg-red-100")}>
-            <Icon className={cn("w-4 h-4", alert ? "text-red-600" : iconColor)} />
+          <div
+            className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0",
+              alert ? "bg-red-100" : iconBg
+            )}
+          >
+            <Icon
+              className={cn(
+                "w-[18px] h-[18px]",
+                alert ? "text-red-500" : iconColor
+              )}
+            />
           </div>
         )}
+        <p className="text-xs font-medium text-gray-500 text-right leading-tight flex-1 ml-3">
+          {title}
+        </p>
       </div>
 
+      {/* Value + trend */}
       <div>
-        <p className={cn("text-2xl font-bold text-gray-900", alert && "text-red-700")}>
-          {value}
-        </p>
+        <div className="flex items-end gap-2.5">
+          <p
+            className={cn(
+              "text-2xl font-bold tracking-tight leading-none",
+              alert ? "text-red-600" : "text-gray-900"
+            )}
+          >
+            {value}
+          </p>
+          {trend && (
+            <span
+              className={cn(
+                "inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-md mb-0.5",
+                trendIsGood === null
+                  ? "bg-gray-100 text-gray-500"
+                  : trendIsGood
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-red-50 text-red-600"
+              )}
+            >
+              {trend.direction === "up" ? "↑" : trend.direction === "down" ? "↓" : "→"}
+              {" "}{Math.abs(trend.value)}%
+            </span>
+          )}
+        </div>
         {subtitle && (
-          <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+          <p className="text-[11px] text-gray-400 mt-1.5 leading-tight">{subtitle}</p>
+        )}
+        {trend?.label && (
+          <p className="text-[11px] text-gray-400 mt-0.5">{trend.label}</p>
         )}
       </div>
-
-      {trend && (
-        <div className={cn("flex items-center gap-1 text-xs font-medium", trendColor)}>
-          <span>{trendArrow}</span>
-          <span>
-            {trend.value > 0 ? "+" : ""}
-            {trend.value}%
-          </span>
-          {trend.label && <span className="text-gray-400 font-normal">{trend.label}</span>}
-        </div>
-      )}
     </div>
   );
 }

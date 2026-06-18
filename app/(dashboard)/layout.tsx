@@ -25,7 +25,7 @@ export default async function DashboardLayout({
     .single();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-[#f7f8fc]">
       <Sidebar
         userRole={profile?.role || "commercial"}
         userName={profile?.full_name || user.email?.split("@")[0]}
