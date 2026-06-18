@@ -13,14 +13,29 @@ import { cn } from "@/lib/utils";
 export default async function ImmobilierPage() {
   const supabase = await createClient();
 
+  type SiteRow = {
+    id: string; name: string; city: string; total_surface: number; address: string | null; created_at: string;
+    units: Array<{ id: string; name: string; surface: number; status: string; tenants: Array<{ id: string; company_name: string; rent_amount: number; lease_end: string | null }> }>;
+  };
+  type TenantRow = {
+    id: string; company_name: string; contact_name: string | null; contact_email: string | null;
+    contact_phone: string | null; rent_amount: number; deposit_amount: number | null;
+    lease_start: string; lease_end: string | null; created_at: string; updated_at: string; unit_id: string;
+    units: { name: string; surface: number; sites: { name: string } | null } | null;
+    tenant_documents: Array<{ type: string; expiry_date: string | null; status: string }>;
+    rent_payments: Array<{ month: string; expected_amount: number; received_amount: number | null; status: string }>;
+  };
+
   // Sites avec leurs unités
-  const { data: sites } = await supabase
+  const { data: sitesRaw } = await supabase
     .from("sites")
     .select("*, units(id, name, surface, status, tenants(id, company_name, rent_amount, lease_end))")
     .order("name");
 
+  const sites = sitesRaw as SiteRow[] | null;
+
   // Tous les locataires avec documents et paiements
-  const { data: tenants } = await supabase
+  const { data: tenantsRaw } = await supabase
     .from("tenants")
     .select(`
       *,
@@ -29,6 +44,8 @@ export default async function ImmobilierPage() {
       rent_payments(month, expected_amount, received_amount, status)
     `)
     .order("company_name");
+
+  const tenants = tenantsRaw as TenantRow[] | null;
 
   // KPIs globaux
   const allUnits = sites?.flatMap((s) => s.units) || [];
