@@ -1,5 +1,9 @@
 // Types générés à partir du schéma Supabase
 // Régénérer avec : npx supabase gen types typescript --project-id <id> > lib/supabase/types.ts
+//
+// NOTE: chaque table expose un champ `Relationships` (même vide). Il est requis par
+// le contrat `GenericSchema` de @supabase/supabase-js (>= 2.x). Sans lui, la totalité
+// du schéma cesse d'être reconnue et toutes les requêtes retournent le type `never`.
 
 export type UserRole = "admin" | "direction" | "commercial" | "immo" | "compta";
 
@@ -32,6 +36,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["profiles"]["Row"], "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       companies: {
         Row: {
@@ -44,6 +57,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["companies"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["companies"]["Insert"]>;
+        Relationships: [];
       };
       deals: {
         Row: {
@@ -64,6 +78,22 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["deals"]["Row"], "id" | "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["deals"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "deals_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "deals_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       bank_accounts: {
         Row: {
@@ -77,6 +107,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["bank_accounts"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["bank_accounts"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       invoices: {
         Row: {
@@ -93,6 +132,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["invoices"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["invoices"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "invoices_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       sites: {
         Row: {
@@ -105,6 +153,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["sites"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["sites"]["Insert"]>;
+        Relationships: [];
       };
       units: {
         Row: {
@@ -118,6 +167,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["units"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["units"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "units_site_id_fkey";
+            columns: ["site_id"];
+            isOneToOne: false;
+            referencedRelation: "sites";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tenants: {
         Row: {
@@ -136,6 +194,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["tenants"]["Row"], "id" | "created_at" | "updated_at">;
         Update: Partial<Database["public"]["Tables"]["tenants"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "tenants_unit_id_fkey";
+            columns: ["unit_id"];
+            isOneToOne: false;
+            referencedRelation: "units";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tenant_documents: {
         Row: {
@@ -150,6 +217,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["tenant_documents"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["tenant_documents"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "tenant_documents_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       rent_payments: {
         Row: {
@@ -165,6 +241,15 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["rent_payments"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["rent_payments"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "rent_payments_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       // Préparé pour Phase 2 RAG
       documents: {
@@ -180,10 +265,12 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["documents"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["documents"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

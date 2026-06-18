@@ -16,7 +16,16 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-const nav = [
+type NavItem = {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  roles: string[];
+  badge?: string | number | null;
+  soon?: boolean;
+};
+
+const nav: NavItem[] = [
   {
     label: "Vue d'ensemble",
     href: "/",

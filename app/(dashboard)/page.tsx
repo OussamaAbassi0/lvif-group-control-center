@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   // ---- KPIs Finance ----
   const { data: accounts } = await supabase
     .from("bank_accounts")
-    .select("balance, company_id, companies(short_name)");
+    .select("balance, bank_name, updated_at, company_id, companies(short_name)");
 
   const totalCash = accounts?.reduce((sum, a) => sum + (a.balance || 0), 0) || 0;
 
