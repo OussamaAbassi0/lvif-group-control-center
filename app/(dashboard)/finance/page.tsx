@@ -17,44 +17,31 @@ export default async function FinancePage() {
   const supabase = await createClient();
 
   // Trésorerie par compte
-  const { data: accountsRaw } = await supabase
+  const { data: accounts } = await supabase
     .from("bank_accounts")
     .select("*, companies(name, short_name, color)")
     .order("balance", { ascending: false });
 
-  const accounts = accountsRaw as Array<{
-    id: string; bank_name: string; account_name: string;
-    balance: number; currency: string; updated_at: string;
-    companies: { name: string; short_name: string; color: string } | null;
-  }> | null;
-
   const totalCash = accounts?.reduce((s, a) => s + (a.balance || 0), 0) || 0;
 
-  type InvoiceRow = {
-    amount: number; status: string; due_date: string | null;
-    counterparty: string; companies: { short_name: string } | null;
-  };
-
   // Factures clients (à encaisser)
-  const { data: receivableRaw } = await supabase
+  const { data: receivable } = await supabase
     .from("invoices")
     .select("amount, status, due_date, counterparty, companies(short_name)")
     .eq("type", "receivable")
     .neq("status", "paid")
     .order("due_date", { ascending: true });
 
-  const receivable = receivableRaw as InvoiceRow[] | null;
   const totalReceivable = receivable?.reduce((s, i) => s + (i.amount || 0), 0) || 0;
 
   // Factures fournisseurs (à payer)
-  const { data: payableRaw } = await supabase
+  const { data: payable } = await supabase
     .from("invoices")
     .select("amount, status, due_date, counterparty, companies(short_name)")
     .eq("type", "payable")
     .neq("status", "paid")
     .order("due_date", { ascending: true });
 
-  const payable = payableRaw as InvoiceRow[] | null;
   const totalPayable = payable?.reduce((s, i) => s + (i.amount || 0), 0) || 0;
 
   // Factures en retard
@@ -160,7 +147,7 @@ export default async function FinancePage() {
                           {formatCurrency(account.balance)}
                         </td>
                         <td className="px-5 py-3 text-right text-xs text-gray-400">
-                          {formatDate(account.updated_at)}
+                          {account.updated_at ? formatDate(account.updated_at) : "—"}
                         </td>
                       </tr>
                     );

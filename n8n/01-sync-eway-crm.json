@@ -1,0 +1,176 @@
+{
+  "name": "LVIF — Sync eWay CRM (toutes les 15 min)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Toutes les 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lvif-group-control-center-6146.vercel.app/api/sync/eway",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $vars.CRON_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1b2c3d4-0001-0002-0001-000000000002",
+      "name": "Appel sync eWay",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-eway-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-0001-0003-0001-000000000003",
+      "name": "Succès ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log-success",
+              "name": "status",
+              "value": "✅ eWay sync OK",
+              "type": "string"
+            },
+            {
+              "id": "log-count",
+              "name": "deals_synced",
+              "value": "={{ $json.synced }}",
+              "type": "number"
+            },
+            {
+              "id": "log-ts",
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0004-0001-000000000004",
+      "name": "Log succès",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log-error",
+              "name": "status",
+              "value": "❌ eWay sync ERREUR",
+              "type": "string"
+            },
+            {
+              "id": "log-detail",
+              "name": "error_detail",
+              "value": "={{ $json.error || $json.detail || 'Erreur inconnue' }}",
+              "type": "string"
+            },
+            {
+              "id": "log-ts-err",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0005-0001-000000000005",
+      "name": "Log erreur",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Toutes les 15 min": {
+      "main": [
+        [
+          { "node": "Appel sync eWay", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Appel sync eWay": {
+      "main": [
+        [
+          { "node": "Succès ?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Succès ?": {
+      "main": [
+        [
+          { "node": "Log succès", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Log erreur", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "",
+  "meta": { "instanceId": "" },
+  "tags": ["lvif", "sync", "crm"]
+}

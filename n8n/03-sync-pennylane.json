@@ -1,0 +1,182 @@
+{
+  "name": "LVIF — Sync Pennylane (toutes les heures)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "c1b2c3d4-0003-0001-0001-000000000001",
+      "name": "Toutes les heures",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://lvif-group-control-center-6146.vercel.app/api/sync/pennylane",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $vars.CRON_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "c1b2c3d4-0003-0002-0001-000000000002",
+      "name": "Appel sync Pennylane",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-pennylane-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "c1b2c3d4-0003-0003-0001-000000000003",
+      "name": "Succès ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "penny-ok",
+              "name": "status",
+              "value": "✅ Pennylane sync OK",
+              "type": "string"
+            },
+            {
+              "id": "penny-recv",
+              "name": "factures_clients",
+              "value": "={{ $json.receivable }}",
+              "type": "number"
+            },
+            {
+              "id": "penny-pay",
+              "name": "factures_fournisseurs",
+              "value": "={{ $json.payable }}",
+              "type": "number"
+            },
+            {
+              "id": "penny-ts",
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1b2c3d4-0003-0004-0001-000000000004",
+      "name": "Log succès",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "penny-err",
+              "name": "status",
+              "value": "❌ Pennylane sync ERREUR",
+              "type": "string"
+            },
+            {
+              "id": "penny-err-detail",
+              "name": "error_detail",
+              "value": "={{ $json.error || $json.detail || 'Erreur API Pennylane' }}",
+              "type": "string"
+            },
+            {
+              "id": "penny-ts-err",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1b2c3d4-0003-0005-0001-000000000005",
+      "name": "Log erreur",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Toutes les heures": {
+      "main": [
+        [
+          { "node": "Appel sync Pennylane", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Appel sync Pennylane": {
+      "main": [
+        [
+          { "node": "Succès ?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Succès ?": {
+      "main": [
+        [
+          { "node": "Log succès", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Log erreur", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "",
+  "meta": { "instanceId": "" },
+  "tags": ["lvif", "sync", "finance", "pennylane"]
+}
