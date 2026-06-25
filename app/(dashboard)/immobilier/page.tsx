@@ -365,3 +365,5 @@ function AlertBlock({ title, color, items }: {
       ))}
     </div>
   
+  );
+}
