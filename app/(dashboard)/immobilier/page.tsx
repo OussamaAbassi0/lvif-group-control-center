@@ -55,7 +55,7 @@ export default async function ImmobilierPage() {
   const overdueRents  = tenants?.filter((t)=>t.rent_payments?.some((p: {month:string;status:string})=>p.month===currentMonth&&p.status==="overdue"))??[];
   const pendingRents  = tenants?.filter((t)=>t.rent_payments?.some((p: {month:string;status:string})=>p.month===currentMonth&&p.status==="pending"))??[];
   const collectedThisMonth = tenants?.reduce((s,t)=>{
-    const p = t.rent_payments?.find((rp: {month:string;status:string;received_amount:number})=>rp.month===currentMonth&&rp.status==="paid");
+    const p = t.rent_payments?.find((rp: {month:string;status:string;received_amount:number|null})=>rp.month===currentMonth&&rp.status==="paid");
     return s+(p?.received_amount??0);
   },0)??0;
   const recoveryRate = totalRentMonthly>0?(collectedThisMonth/totalRentMonthly)*100:0;
@@ -364,5 +364,4 @@ function AlertBlock({ title, color, items }: {
         </div>
       ))}
     </div>
-  );
-}
+  
