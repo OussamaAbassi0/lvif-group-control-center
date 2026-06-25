@@ -4,24 +4,21 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
+const LIME = "#C5F73A";
+
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string|null>(null);
+  const router   = useRouter();
   const supabase = createClient();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
@@ -32,92 +29,115 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#151a55] via-[#1e2a88] to-[#3b5ef5] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-              <svg
-                className="w-7 h-7 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-            </div>
+    <div style={{
+      minHeight:"100vh", background:"#0c0c0d",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      padding:24, fontFamily:"inherit",
+    }}>
+      {/* Subtle dot grid background */}
+      <div style={{
+        position:"fixed", inset:0, pointerEvents:"none",
+        backgroundImage:"radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)",
+        backgroundSize:"26px 26px",
+      }} />
+
+      {/* Lime glow */}
+      <div style={{
+        position:"fixed", top:"-20%", left:"50%", transform:"translateX(-50%)",
+        width:600, height:400, borderRadius:"50%",
+        background:"radial-gradient(ellipse, rgba(197,247,58,0.06) 0%, transparent 70%)",
+        pointerEvents:"none",
+      }} />
+
+      <div style={{ width:"100%", maxWidth:400, position:"relative", zIndex:1 }}>
+
+        {/* Brand */}
+        <div style={{ textAlign:"center", marginBottom:36 }}>
+          <div style={{
+            display:"inline-flex", alignItems:"center", justifyContent:"center",
+            width:58, height:58, borderRadius:18,
+            background:"linear-gradient(160deg,#1b1b1d,#141416)",
+            border:"1px solid rgba(197,247,58,0.25)",
+            boxShadow:"0 0 32px rgba(197,247,58,0.12)",
+            marginBottom:16,
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M4 19V9m5 10V5m5 14v-7m5 7V8"
+                stroke={LIME} strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
           </div>
-          <h1 className="text-2xl font-bold text-white">LVIF Group</h1>
-          <p className="text-white/60 text-sm mt-1">Control Center</p>
+          <h1 style={{ color:"#f3f3f4", fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>LVIF Group</h1>
+          <p style={{ color:"#6b6b70", fontSize:13, marginTop:5 }}>Control Center</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">
-            Connexion
-          </h2>
+        <div style={{
+          background:"linear-gradient(160deg,#1b1b1d,#141416)",
+          border:"1px solid rgba(255,255,255,0.07)", borderRadius:24,
+          padding:"32px 28px",
+          boxShadow:"0 24px 48px rgba(0,0,0,0.4)",
+        }}>
+          <h2 style={{ color:"#f3f3f4", fontSize:17, fontWeight:700, marginBottom:22 }}>Connexion</h2>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} style={{ display:"flex", flexDirection:"column", gap:16 }}>
             <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
+              <label style={{ display:"block", color:"#8b8b8f", fontSize:12, fontWeight:600, marginBottom:7, textTransform:"uppercase", letterSpacing:0.6 }}>
                 Email
               </label>
               <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                type="email" required value={email}
+                onChange={(e)=>setEmail(e.target.value)}
                 placeholder="vous@lvif.fr"
+                style={{
+                  width:"100%", background:"rgba(255,255,255,0.05)",
+                  border:"1px solid rgba(255,255,255,0.1)", borderRadius:12,
+                  color:"#f3f3f4", fontSize:14, padding:"11px 14px",
+                  outline:"none", fontFamily:"inherit", boxSizing:"border-box",
+                }}
               />
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
+              <label style={{ display:"block", color:"#8b8b8f", fontSize:12, fontWeight:600, marginBottom:7, textTransform:"uppercase", letterSpacing:0.6 }}>
                 Mot de passe
               </label>
               <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                type="password" required value={password}
+                onChange={(e)=>setPassword(e.target.value)}
                 placeholder="••••••••"
+                style={{
+                  width:"100%", background:"rgba(255,255,255,0.05)",
+                  border:"1px solid rgba(255,255,255,0.1)", borderRadius:12,
+                  color:"#f3f3f4", fontSize:14, padding:"11px 14px",
+                  outline:"none", fontFamily:"inherit", boxSizing:"border-box",
+                }}
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-                {error}
-              </p>
+              <div style={{
+                background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)",
+                borderRadius:10, padding:"10px 14px",
+              }}>
+                <p style={{ color:"#fca5a5", fontSize:13 }}>{error}</p>
+              </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 disabled:bg-brand-400 text-white font-medium rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
-            >
-              {loading ? "Connexion en cours..." : "Se connecter"}
+            <button type="submit" disabled={loading} style={{
+              marginTop:4,
+              background: loading ? "rgba(197,247,58,0.4)" : "linear-gradient(180deg,#C5F73A,#a9da22)",
+              color:"#0c0c0d", border:"none", borderRadius:30, padding:"14px",
+              fontSize:14, fontWeight:800, fontFamily:"inherit", cursor:"pointer",
+              boxShadow: loading ? "none" : "0 8px 24px rgba(197,247,58,0.28)",
+              transition:"all 0.15s",
+            }}>
+              {loading ? "Connexion..." : "Se connecter"}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-white/40 text-xs mt-6">
-          © 2026 LVIF Group — Usage interne uniquement
+        <p style={{ textAlign:"center", color:"rgba(107,107,112,0.6)", fontSize:11, marginTop:20 }}>
+          © 2025 LVIF Group — Usage interne uniquement
         </p>
       </div>
     </div>
