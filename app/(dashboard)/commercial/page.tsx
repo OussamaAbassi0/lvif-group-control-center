@@ -1,11 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { Header } from "@/components/layout/header";
-import { KpiCard } from "@/components/dashboard/kpi-card";
-import {
-  AlertTriangle, Target, Clock, TrendingUp,
-  CheckCircle2, Flame, Trophy,
-} from "lucide-react";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+const LIME = "#C5F73A";
 
 const STATUS_LABELS: Record<string, string> = {
   prospect:      "Prospect",
@@ -16,265 +12,13 @@ const STATUS_LABELS: Record<string, string> = {
   perdu:         "Perdu",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  prospect:      "bg-gray-100 text-gray-700",
-  qualification: "bg-blue-100 text-blue-700",
-  proposition:   "bg-yellow-100 text-yellow-700",
-  negociation:   "bg-orange-100 text-orange-700",
-  gagne:         "bg-emerald-100 text-emerald-700",
-  perdu:         "bg-red-100 text-red-700",
+const COMPANY_DOT: Record<string, string> = {
+  LVIF: LIME,
+  ENO:  "#a78bfa",
+  TJM:  "#34d399",
 };
 
-const PRIORITY_CONFIG: Record<number, { label: string; className: string; icon: string }> = {
-  0: { label: "Normal",   className: "bg-gray-100 text-gray-500",    icon: "" },
-  1: { label: "Haute",    className: "bg-blue-100 text-blue-700",    icon: "↑" },
-  2: { label: "Urgente",  className: "bg-orange-100 text-orange-700", icon: "↑↑" },
-  3: { label: "Critique", className: "bg-red-100 text-red-700",      icon: "🔥" },
-};
-
-const COMPANY_BADGE: Record<string, string> = {
-  LVIF: "bg-brand-100 text-brand-700 border border-brand-200",
-  ENO:  "bg-violet-100 text-violet-700 border border-violet-200",
-  TJM:  "bg-emerald-100 text-emerald-700 border border-emerald-200",
-};
-
-export default async function CommercialPage() {
-  const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
-
-  // Tous les deals actifs avec détails
-  const { data: allDeals } = await supabase
-    .from("deals")
-    .select("*, profiles(full_name), companies(short_name, name)")
-    .order("priority", { ascending: false })
-    .order("next_action_date", { ascending: true });
-
-  const activeDeals = allDeals?.filter((d) => !["gagne", "perdu"].includes(d.status)) ?? [];
-  const overdueDeals = activeDeals.filter((d) => d.next_action_date && d.next_action_date < today);
-  const todayDeals = activeDeals.filter((d) => d.next_action_date === today);
-  const noActionDeals = activeDeals.filter((d) => !d.next_action);
-  const ganneDeals = allDeals?.filter((d) => d.status === "gagne") ?? [];
-  const totalPipeline = activeDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
-  const totalGagne = ganneDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
-
-  // Pipeline par étape (excluant gagné/perdu pour l'entonnoir)
-  const stageOrder = ["prospect", "qualification", "proposition", "negociation"];
-  const pipelineStages = stageOrder.map((s) => {
-    const stageDeals = activeDeals.filter((d) => d.status === s);
-    return {
-      status: s,
-      label: STATUS_LABELS[s],
-      count: stageDeals.length,
-      amount: stageDeals.reduce((sum, d) => sum + (d.amount ?? 0), 0),
-    };
-  });
-
-  const upcomingDeals = activeDeals.filter(
-    (d) => d.next_action_date && d.next_action_date > today && d.next_action_date <= new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0]
-  );
-
-  return (
-    <div>
-      <Header
-        title="Actions Commerciales"
-        subtitle="Pipeline LVIF · Eno Events · TJM Advertising"
-      />
-
-      <div className="p-6 space-y-6">
-
-        {/* ---- KPIs ---- */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          <KpiCard
-            title="Actions en retard"
-            value={overdueDeals.length}
-            icon={AlertTriangle}
-            iconColor="text-red-600"
-            alert={overdueDeals.length > 0}
-            subtitle="À traiter immédiatement"
-          />
-          <KpiCard
-            title="Actions aujourd'hui"
-            value={todayDeals.length}
-            icon={Target}
-            iconColor="text-orange-500"
-            subtitle="Planifiées ce jour"
-          />
-          <KpiCard
-            title="Pipeline total"
-            value={formatCurrency(totalPipeline)}
-            icon={TrendingUp}
-            iconColor="text-brand-600"
-            subtitle={`${activeDeals.length} opportunités actives`}
-          />
-          <KpiCard
-            title="Chiffre affaires gagné"
-            value={formatCurrency(totalGagne)}
-            icon={Trophy}
-            iconColor="text-emerald-600"
-            subtitle={`${ganneDeals.length} deal(s) signés`}
-          />
-        </div>
-
-        {/* ---- 2 colonnes : Entonnoir + Alertes ---- */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          {/* Entonnoir pipeline */}
-          <section className="bg-white rounded-xl border p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Entonnoir pipeline</h2>
-            <div className="space-y-2.5">
-              {pipelineStages.map((s, i) => {
-                const maxCount = Math.max(...pipelineStages.map((x) => x.count), 1);
-                const barPct = (s.count / maxCount) * 100;
-                const stageColors = [
-                  "bg-gray-300",
-                  "bg-blue-300",
-                  "bg-yellow-400",
-                  "bg-orange-400",
-                ];
-                return (
-                  <div key={s.status} className="flex items-center gap-3 text-xs">
-                    <span className="w-24 text-gray-600 text-right font-medium shrink-0">{s.label}</span>
-                    <div className="flex-1 h-8 bg-gray-50 rounded-lg overflow-hidden relative border border-gray-100">
-                      <div
-                        className={cn("h-full rounded-lg transition-all flex items-center px-3", stageColors[i])}
-                        style={{ width: `${Math.max(barPct, s.count > 0 ? 10 : 0)}%` }}
-                      >
-                        {s.count > 0 && (
-                          <span className="text-[11px] font-bold text-gray-700">
-                            {s.count} deal{s.count > 1 ? "s" : ""}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="w-24 text-right font-semibold text-gray-800 shrink-0">
-                      {s.amount > 0 ? formatCurrency(s.amount) : "—"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Deals gagnés */}
-            <div className="mt-4 pt-4 border-t flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="text-xs font-medium text-emerald-700">Deals signés</span>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-bold text-emerald-700">{formatCurrency(totalGagne)}</span>
-                <span className="text-xs text-gray-400 ml-2">({ganneDeals.length} deals)</span>
-              </div>
-            </div>
-          </section>
-
-          {/* Alertes rapides */}
-          <section className="bg-white rounded-xl border p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-500" />
-              Attention requise
-            </h2>
-            {overdueDeals.length === 0 && noActionDeals.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2" />
-                <p className="text-sm font-medium text-gray-500">Tout est à jour</p>
-                <p className="text-xs text-gray-400 mt-0.5">Aucune action en retard 🎉</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {overdueDeals.slice(0, 5).map((d) => {
-                  const co = d.companies as { short_name: string } | null;
-                  return (
-                    <div key={d.id} className="flex items-start justify-between bg-red-50 rounded-lg px-3 py-2.5 border border-red-200">
-                      <div>
-                        <p className="text-xs font-semibold text-red-800">{d.title}</p>
-                        <p className="text-[11px] text-red-600">{d.client_name} · {d.next_action}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 ml-2 shrink-0">
-                        {co && <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", COMPANY_BADGE[co.short_name])}>{co.short_name}</span>}
-                        <span className="text-[10px] text-red-600 font-medium">{formatDate(d.next_action_date!)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                {noActionDeals.length > 0 && (
-                  <div className="flex items-center justify-between bg-yellow-50 rounded-lg px-3 py-2.5 border border-yellow-200">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-yellow-600" />
-                      <p className="text-xs font-medium text-yellow-800">
-                        {noActionDeals.length} deal{noActionDeals.length > 1 ? "s" : ""} sans prochaine action
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-yellow-700 font-semibold">→ à planifier</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Cette semaine */}
-            {upcomingDeals.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-xs font-medium text-gray-500 mb-2">Cette semaine ({upcomingDeals.length})</p>
-                <div className="space-y-1.5">
-                  {upcomingDeals.slice(0, 3).map((d) => (
-                    <div key={d.id} className="flex items-center justify-between text-xs">
-                      <span className="text-gray-700 truncate">{d.title}</span>
-                      <span className="text-gray-400 shrink-0 ml-2">{formatDate(d.next_action_date!)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* ---- Actions en retard (table complète) ---- */}
-        {overdueDeals.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              Actions en retard ({overdueDeals.length})
-            </h2>
-            <DealTable deals={overdueDeals} variant="overdue" />
-          </section>
-        )}
-
-        {/* ---- Actions du jour ---- */}
-        {todayDeals.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-orange-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4" />
-              À faire aujourd'hui ({todayDeals.length})
-            </h2>
-            <DealTable deals={todayDeals} />
-          </section>
-        )}
-
-        {/* ---- Tous les deals actifs ---- */}
-        <section>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            Tous les deals actifs ({activeDeals.length})
-          </h2>
-          {activeDeals.length > 0 ? (
-            <DealTable deals={activeDeals} showAll />
-          ) : (
-            <EmptyState />
-          )}
-        </section>
-
-        {/* ---- Deals sans action ---- */}
-        {noActionDeals.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-yellow-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Sans prochaine action ({noActionDeals.length})
-            </h2>
-            <DealTable deals={noActionDeals} variant="no-action" />
-          </section>
-        )}
-      </div>
-    </div>
-  );
-}
+const STAGE_COLORS = ["#3a3a42","#3b4cdb","#ca8a04","#ea580c"];
 
 type Deal = {
   id: string;
@@ -289,104 +33,339 @@ type Deal = {
   companies: { short_name: string; name: string } | null;
 };
 
-function DealTable({
-  deals,
-  variant,
-  showAll = false,
-}: {
-  deals: Deal[];
-  variant?: "overdue" | "no-action";
-  showAll?: boolean;
-}) {
+export default async function CommercialPage() {
+  const supabase = await createClient();
   const today = new Date().toISOString().split("T")[0];
 
+  const { data: allDeals } = await supabase
+    .from("deals")
+    .select("*, profiles(full_name), companies(short_name, name)")
+    .order("priority", { ascending: false })
+    .order("next_action_date", { ascending: true });
+
+  const activeDeals   = allDeals?.filter((d) => !["gagne","perdu"].includes(d.status)) ?? [];
+  const overdueDeals  = activeDeals.filter((d) => d.next_action_date && d.next_action_date < today);
+  const todayDeals    = activeDeals.filter((d) => d.next_action_date === today);
+  const noActionDeals = activeDeals.filter((d) => !d.next_action);
+  const ganneDeals    = allDeals?.filter((d) => d.status === "gagne") ?? [];
+  const totalPipeline = activeDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
+  const totalGagne    = ganneDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
+
+  const stageOrder    = ["prospect","qualification","proposition","negociation"];
+  const pipelineStages = stageOrder.map((s) => {
+    const sd = activeDeals.filter((d) => d.status === s);
+    return { status: s, label: STATUS_LABELS[s], count: sd.length, amount: sd.reduce((x,d)=>x+(d.amount??0),0) };
+  });
+  const maxStageCount  = Math.max(...pipelineStages.map((x) => x.count), 1);
+
+  const upcomingDeals = activeDeals.filter(
+    (d) => d.next_action_date && d.next_action_date > today &&
+           d.next_action_date <= new Date(Date.now()+7*86400000).toISOString().split("T")[0]
+  );
+
+  const card = {
+    background:"linear-gradient(160deg,#1b1b1d,#141416)",
+    border:"1px solid rgba(255,255,255,0.05)",
+    borderRadius:22, padding:"20px 22px",
+  } as const;
+
   return (
-    <div className="bg-white rounded-xl border overflow-hidden">
-      <table className="w-full text-sm">
+    <div style={{ padding:"28px 24px", background:"#0c0c0d", minHeight:"100vh" }}>
+
+      {/* ── Page header ── */}
+      <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:26 }}>
+        <div>
+          <p style={{ color:"#6b6b70", fontSize:12, fontWeight:600, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>
+            LVIF Group — Module
+          </p>
+          <h1 style={{ color:"#f3f3f4", fontSize:26, fontWeight:700, letterSpacing:-0.5, lineHeight:1 }}>
+            Commercial
+          </h1>
+          <p style={{ color:"#6b6b70", fontSize:13, marginTop:5 }}>
+            Pipeline LVIF · Eno Events · TJM — {activeDeals.length} opportunités actives
+          </p>
+        </div>
+        {overdueDeals.length > 0 && (
+          <div style={{
+            display:"flex", alignItems:"center", gap:6,
+            background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.25)",
+            color:"#f87171", fontSize:12, fontWeight:700,
+            padding:"7px 14px", borderRadius:30,
+          }}>
+            <span style={{ width:6, height:6, borderRadius:"50%", background:"#ef4444", display:"inline-block" }} />
+            {overdueDeals.length} action{overdueDeals.length>1?"s":""} en retard
+          </div>
+        )}
+      </div>
+
+      {/* ── KPI row ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+        {[
+          { label:"Actions en retard",      value:overdueDeals.length,           sub:"À traiter maintenant",    alert:overdueDeals.length>0 },
+          { label:"Actions aujourd'hui",     value:todayDeals.length,             sub:"Planifiées ce jour",      alert:false },
+          { label:"Pipeline total",          value:formatCurrency(totalPipeline), sub:`${activeDeals.length} opportunités`, alert:false, lime:true },
+          { label:"CA signé",                value:formatCurrency(totalGagne),    sub:`${ganneDeals.length} deal(s) signés`, alert:false },
+        ].map((k) => (
+          <div key={k.label} style={{
+            ...card,
+            borderColor: k.alert ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.05)",
+            display:"flex", flexDirection:"column", gap:6,
+          }}>
+            <span style={{ color:"#6b6b70", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.8 }}>
+              {k.label}
+            </span>
+            <span style={{
+              color: k.alert ? "#f87171" : k.lime ? LIME : "#f3f3f4",
+              fontSize:24, fontWeight:700, letterSpacing:-0.5,
+            }}>
+              {k.value}
+            </span>
+            <span style={{ color:"#6b6b70", fontSize:11 }}>{k.sub}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── 2 col: Entonnoir + Alertes ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:20 }}>
+
+        {/* Entonnoir */}
+        <div style={card}>
+          <p style={{ color:"#e9e9ea", fontSize:14, fontWeight:700, marginBottom:16 }}>Entonnoir pipeline</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {pipelineStages.map((s,i) => (
+              <div key={s.status} style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ color:"#8b8b8f", fontSize:11, fontWeight:600, width:92, textAlign:"right", flexShrink:0 }}>
+                  {s.label}
+                </span>
+                <div style={{ flex:1, height:30, background:"rgba(255,255,255,0.04)", borderRadius:8, overflow:"hidden", position:"relative" }}>
+                  <div style={{
+                    width:`${Math.max((s.count/maxStageCount)*100, s.count>0?8:0)}%`,
+                    height:"100%", borderRadius:8,
+                    background: STAGE_COLORS[i],
+                    display:"flex", alignItems:"center", paddingLeft:10,
+                    transition:"width 0.4s ease",
+                  }}>
+                    {s.count>0 && <span style={{ color:"#fff", fontSize:11, fontWeight:700 }}>{s.count}</span>}
+                  </div>
+                </div>
+                <span style={{ color:"#8b8b8f", fontSize:11, fontWeight:600, width:90, textAlign:"right", flexShrink:0 }}>
+                  {s.amount>0?formatCurrency(s.amount):"—"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop:16, paddingTop:14, borderTop:"1px solid rgba(255,255,255,0.06)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{ width:8, height:8, borderRadius:"50%", background:LIME, display:"inline-block" }} />
+              <span style={{ color:"#a3a3a8", fontSize:11, fontWeight:600 }}>Deals signés</span>
+            </div>
+            <div>
+              <span style={{ color:LIME, fontSize:12, fontWeight:700 }}>{formatCurrency(totalGagne)}</span>
+              <span style={{ color:"#6b6b70", fontSize:11, marginLeft:6 }}>({ganneDeals.length} deals)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Alertes */}
+        <div style={card}>
+          <p style={{ color:"#e9e9ea", fontSize:14, fontWeight:700, marginBottom:16 }}>Attention requise</p>
+          {overdueDeals.length===0 && noActionDeals.length===0 ? (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", flex:1, padding:"24px 0", textAlign:"center" }}>
+              <div style={{ fontSize:32, marginBottom:8 }}>✅</div>
+              <p style={{ color:"#f3f3f4", fontSize:14, fontWeight:600 }}>Tout est à jour</p>
+              <p style={{ color:"#6b6b70", fontSize:12, marginTop:4 }}>Aucune action en retard</p>
+            </div>
+          ):(
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {overdueDeals.slice(0,5).map((d)=>{
+                const co = d.companies as {short_name:string}|null;
+                return (
+                  <div key={d.id} style={{
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)",
+                    borderRadius:12, padding:"10px 14px",
+                  }}>
+                    <div>
+                      <p style={{ color:"#fca5a5", fontSize:12, fontWeight:700 }}>{d.title}</p>
+                      <p style={{ color:"#f87171", fontSize:11, marginTop:2 }}>{d.client_name} · {d.next_action}</p>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+                      {co && (
+                        <span style={{
+                          fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:20,
+                          background:"rgba(255,255,255,0.08)", color:"#e9e9ea",
+                        }}>{co.short_name}</span>
+                      )}
+                      <span style={{ color:"#f87171", fontSize:11, fontWeight:600 }}>
+                        {d.next_action_date?formatDate(d.next_action_date):"—"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {noActionDeals.length>0 && (
+                <div style={{
+                  display:"flex", alignItems:"center", justifyContent:"space-between",
+                  background:"rgba(234,179,8,0.08)", border:"1px solid rgba(234,179,8,0.2)",
+                  borderRadius:12, padding:"10px 14px",
+                }}>
+                  <p style={{ color:"#fde68a", fontSize:12, fontWeight:600 }}>
+                    {noActionDeals.length} deal{noActionDeals.length>1?"s":""} sans prochaine action
+                  </p>
+                  <span style={{ color:"#fbbf24", fontSize:11, fontWeight:700 }}>→ à planifier</span>
+                </div>
+              )}
+            </div>
+          )}
+          {upcomingDeals.length>0 && (
+            <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(255,255,255,0.06)" }}>
+              <p style={{ color:"#6b6b70", fontSize:11, fontWeight:600, marginBottom:8, textTransform:"uppercase", letterSpacing:0.7 }}>
+                Cette semaine ({upcomingDeals.length})
+              </p>
+              {upcomingDeals.slice(0,3).map((d)=>(
+                <div key={d.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
+                  <span style={{ color:"#a3a3a8", fontSize:12, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.title}</span>
+                  <span style={{ color:"#6b6b70", fontSize:11, marginLeft:10, flexShrink:0 }}>{d.next_action_date?formatDate(d.next_action_date):"—"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Section labels helper ── */}
+
+      {/* ── Actions en retard ── */}
+      {overdueDeals.length>0 && (
+        <div style={{ marginBottom:20 }}>
+          <p style={{ color:"#f87171", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
+            ⚠ Actions en retard ({overdueDeals.length})
+          </p>
+          <DealTable deals={overdueDeals} today={today} variant="overdue" />
+        </div>
+      )}
+
+      {/* ── Actions du jour ── */}
+      {todayDeals.length>0 && (
+        <div style={{ marginBottom:20 }}>
+          <p style={{ color:"#fb923c", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
+            Aujourd'hui ({todayDeals.length})
+          </p>
+          <DealTable deals={todayDeals} today={today} />
+        </div>
+      )}
+
+      {/* ── Tous les deals actifs ── */}
+      <div style={{ marginBottom:20 }}>
+        <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
+          Tous les deals actifs ({activeDeals.length})
+        </p>
+        {activeDeals.length>0 ? (
+          <DealTable deals={activeDeals} today={today} />
+        ) : (
+          <div style={{
+            background:"linear-gradient(160deg,#1b1b1d,#141416)",
+            border:"1px dashed rgba(255,255,255,0.08)", borderRadius:18, padding:"40px 20px", textAlign:"center",
+          }}>
+            <p style={{ color:"#f3f3f4", fontSize:14, fontWeight:600 }}>Aucun deal actif — tout est à jour 🎉</p>
+            <p style={{ color:"#6b6b70", fontSize:12, marginTop:6 }}>
+              Les deals seront synchronisés depuis eWay CRM toutes les 15 minutes.
+            </p>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+function DealTable({ deals, today, variant }: { deals: Deal[]; today: string; variant?: "overdue"|"no-action" }) {
+  const tableCard = {
+    background:"linear-gradient(160deg,#1b1b1d,#141416)",
+    border:"1px solid rgba(255,255,255,0.05)", borderRadius:18, overflow:"hidden",
+  } as const;
+  const thStyle = {
+    textAlign:"left" as const, padding:"12px 16px",
+    color:"#6b6b70", fontSize:11, fontWeight:600, textTransform:"uppercase" as const,
+    letterSpacing:0.7, borderBottom:"1px solid rgba(255,255,255,0.05)",
+  };
+  const tdStyle = {
+    padding:"13px 16px", borderBottom:"1px solid rgba(255,255,255,0.04)", verticalAlign:"middle" as const,
+  };
+
+  const STATUS_PILL: Record<string,{bg:string;color:string}> = {
+    prospect:      {bg:"rgba(107,107,112,0.2)",  color:"#a3a3a8"},
+    qualification: {bg:"rgba(59,76,219,0.2)",   color:"#93c5fd"},
+    proposition:   {bg:"rgba(202,138,4,0.2)",   color:"#fde68a"},
+    negociation:   {bg:"rgba(234,88,12,0.2)",   color:"#fdba74"},
+    gagne:         {bg:"rgba(52,211,153,0.2)",  color:"#6ee7b7"},
+    perdu:         {bg:"rgba(239,68,68,0.2)",   color:"#fca5a5"},
+  };
+
+  return (
+    <div style={tableCard}>
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
-          <tr className="border-b bg-gray-50/50">
-            <th className="text-left px-5 py-3 font-medium text-gray-600">Deal</th>
-            <th className="text-left px-5 py-3 font-medium text-gray-600 hidden md:table-cell">Société</th>
-            <th className="text-left px-5 py-3 font-medium text-gray-600">Statut</th>
-            <th className="text-left px-5 py-3 font-medium text-gray-600 hidden lg:table-cell">Prochaine action</th>
-            <th className="text-right px-5 py-3 font-medium text-gray-600">Montant</th>
-            <th className="text-right px-5 py-3 font-medium text-gray-600 hidden xl:table-cell">Responsable</th>
-            <th className="text-right px-5 py-3 font-medium text-gray-600">Échéance</th>
+          <tr>
+            <th style={thStyle}>Deal / Client</th>
+            <th style={thStyle}>Société</th>
+            <th style={thStyle}>Statut</th>
+            <th style={thStyle}>Prochaine action</th>
+            <th style={{...thStyle, textAlign:"right"}}>Montant</th>
+            <th style={{...thStyle, textAlign:"right"}}>Échéance</th>
           </tr>
         </thead>
         <tbody>
-          {deals.map((deal) => {
-            const isLate = variant === "overdue" || (deal.next_action_date && deal.next_action_date < today);
-            const pConf = PRIORITY_CONFIG[deal.priority ?? 0];
+          {deals.map((deal)=>{
+            const isLate = variant==="overdue"||(deal.next_action_date&&deal.next_action_date<today);
             const co = deal.companies;
-
+            const pill = STATUS_PILL[deal.status]||{bg:"rgba(107,107,112,0.2)",color:"#a3a3a8"};
+            const dotColor = co ? (COMPANY_DOT[co.short_name]||"#8b8b8f") : "#8b8b8f";
             return (
-              <tr
-                key={deal.id}
-                className={cn(
-                  "border-b last:border-0 hover:bg-gray-50/40 transition-colors",
-                  isLate && "bg-red-50/20",
-                  deal.status === "gagne" && "bg-emerald-50/20"
-                )}
-              >
-                <td className="px-5 py-3">
-                  <div className="flex items-start gap-2">
-                    {(deal.priority ?? 0) > 0 && (
-                      <span className={cn("text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5", pConf.className)}>
-                        {pConf.icon}
-                      </span>
-                    )}
-                    <div>
-                      <p className="font-medium text-gray-900">{deal.title}</p>
-                      {deal.client_name && (
-                        <p className="text-xs text-gray-500">{deal.client_name}</p>
-                      )}
-                    </div>
-                  </div>
+              <tr key={deal.id} style={{
+                background: isLate ? "rgba(239,68,68,0.04)" : "transparent",
+              }}>
+                <td style={tdStyle}>
+                  <p style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>{deal.title}</p>
+                  {deal.client_name && <p style={{ color:"#6b6b70", fontSize:11, marginTop:2 }}>{deal.client_name}</p>}
                 </td>
-                <td className="px-5 py-3 hidden md:table-cell">
+                <td style={tdStyle}>
                   {co && (
-                    <span className={cn("text-[11px] font-semibold px-2 py-0.5 rounded", COMPANY_BADGE[co.short_name] ?? "bg-gray-100 text-gray-600")}>
-                      {co.short_name}
-                    </span>
+                    <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+                      <span style={{ width:6, height:6, borderRadius:"50%", background:dotColor, display:"inline-block" }} />
+                      <span style={{ color:"#a3a3a8", fontSize:12, fontWeight:600 }}>{co.short_name}</span>
+                    </div>
                   )}
                 </td>
-                <td className="px-5 py-3">
-                  <span className={cn("inline-flex px-2 py-0.5 rounded-full text-xs font-medium", STATUS_COLORS[deal.status])}>
-                    {STATUS_LABELS[deal.status] || deal.status}
+                <td style={tdStyle}>
+                  <span style={{
+                    display:"inline-flex", padding:"3px 10px", borderRadius:20,
+                    background:pill.bg, color:pill.color, fontSize:11, fontWeight:600,
+                  }}>
+                    {STATUS_LABELS[deal.status]||deal.status}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-gray-700 max-w-xs hidden lg:table-cell">
-                  {deal.next_action ? (
-                    <span className="text-xs">{deal.next_action}</span>
-                  ) : (
-                    <span className="text-yellow-600 font-medium italic text-xs">Aucune action définie</span>
-                  )}
+                <td style={tdStyle}>
+                  {deal.next_action
+                    ? <span style={{ color:"#a3a3a8", fontSize:12 }}>{deal.next_action}</span>
+                    : <span style={{ color:"#ca8a04", fontSize:12, fontStyle:"italic" }}>Aucune action définie</span>
+                  }
                 </td>
-                <td className="px-5 py-3 text-right font-semibold text-gray-900">
-                  {deal.amount ? formatCurrency(deal.amount) : "—"}
+                <td style={{...tdStyle, textAlign:"right"}}>
+                  <span style={{ color:"#f3f3f4", fontSize:13, fontWeight:700 }}>
+                    {deal.amount ? formatCurrency(deal.amount) : "—"}
+                  </span>
                 </td>
-                <td className="px-5 py-3 text-right text-xs text-gray-500 hidden xl:table-cell">
-                  {deal.profiles?.full_name || "—"}
-                </td>
-                <td className={cn("px-5 py-3 text-right text-xs font-medium", isLate ? "text-red-600" : "text-gray-500")}>
-                  {deal.next_action_date ? formatDate(deal.next_action_date) : "—"}
+                <td style={{...tdStyle, textAlign:"right"}}>
+                  <span style={{ color: isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
+                    {deal.next_action_date ? formatDate(deal.next_action_date) : "—"}
+                  </span>
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center">
-      <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
-      <p className="text-sm font-medium text-gray-500">Aucune action en attente — tout est à jour 🎉</p>
-      <p className="text-xs text-gray-400 mt-1">Les deals seront synchronisés depuis eWay CRM toutes les 15 minutes.</p>
     </div>
   );
 }
