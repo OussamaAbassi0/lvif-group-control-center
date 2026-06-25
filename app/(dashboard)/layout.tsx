@@ -17,7 +17,6 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Récupérer le profil complet avec le rôle
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, role, email")
@@ -25,13 +24,13 @@ export default async function DashboardLayout({
     .single();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f7f8fc]">
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#0c0c0d" }}>
       <Sidebar
         userRole={profile?.role || "commercial"}
         userName={profile?.full_name || user.email?.split("@")[0]}
         userEmail={profile?.email || user.email}
       />
-      <main className="flex-1 overflow-y-auto">
+      <main style={{ flex: 1, overflowY: "auto", background: "#0c0c0d" }}>
         {children}
       </main>
     </div>
