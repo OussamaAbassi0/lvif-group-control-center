@@ -1,255 +1,280 @@
 import { createClient } from "@/lib/supabase/server";
-import { Header } from "@/components/layout/header";
-import { KpiCard } from "@/components/dashboard/kpi-card";
-import { Wallet, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { cn } from "@/lib/utils";
 
-const COMPANY_COLORS: Record<string, string> = {
-  LVIF: "bg-brand-600",
-  ENO:  "bg-violet-600",
-  TJM:  "bg-emerald-600",
-  SCI:  "bg-amber-600",
-  HLD:  "bg-gray-600",
+const LIME = "#C5F73A";
+
+const COMPANY_DOT: Record<string,string> = {
+  LVIF:"#C5F73A", ENO:"#a78bfa", TJM:"#34d399", SCI:"#f59e0b", HLD:"#94a3b8",
 };
 
 export default async function FinancePage() {
   const supabase = await createClient();
+  const today = new Date().toISOString().split("T")[0];
 
-  // Trésorerie par compte
   const { data: accounts } = await supabase
     .from("bank_accounts")
     .select("*, companies(name, short_name, color)")
     .order("balance", { ascending: false });
 
-  const totalCash = accounts?.reduce((s, a) => s + (a.balance || 0), 0) || 0;
+  const totalCash = accounts?.reduce((s,a)=>s+(a.balance||0),0)||0;
 
-  // Factures clients (à encaisser)
   const { data: receivable } = await supabase
     .from("invoices")
     .select("amount, status, due_date, counterparty, companies(short_name)")
-    .eq("type", "receivable")
-    .neq("status", "paid")
-    .order("due_date", { ascending: true });
+    .eq("type","receivable").neq("status","paid")
+    .order("due_date",{ascending:true});
 
-  const totalReceivable = receivable?.reduce((s, i) => s + (i.amount || 0), 0) || 0;
+  const totalReceivable = receivable?.reduce((s,i)=>s+(i.amount||0),0)||0;
 
-  // Factures fournisseurs (à payer)
   const { data: payable } = await supabase
     .from("invoices")
     .select("amount, status, due_date, counterparty, companies(short_name)")
-    .eq("type", "payable")
-    .neq("status", "paid")
-    .order("due_date", { ascending: true });
+    .eq("type","payable").neq("status","paid")
+    .order("due_date",{ascending:true});
 
-  const totalPayable = payable?.reduce((s, i) => s + (i.amount || 0), 0) || 0;
+  const totalPayable = payable?.reduce((s,i)=>s+(i.amount||0),0)||0;
+  const overduePayable = payable?.filter((i)=>i.due_date&&i.due_date<today)??[];
+  const totalOverdue = overduePayable.reduce((s,i)=>s+(i.amount||0),0);
 
-  // Factures en retard
-  const today = new Date().toISOString().split("T")[0];
-  const overduePayable = payable?.filter(
-    (i) => i.due_date && i.due_date < today
-  );
+  const card = {
+    background:"linear-gradient(160deg,#1b1b1d,#141416)",
+    border:"1px solid rgba(255,255,255,0.05)", borderRadius:22, padding:"20px 22px",
+  } as const;
+  const thStyle = {
+    textAlign:"left" as const, padding:"12px 18px",
+    color:"#6b6b70", fontSize:11, fontWeight:600,
+    textTransform:"uppercase" as const, letterSpacing:0.7,
+    borderBottom:"1px solid rgba(255,255,255,0.05)",
+  };
+  const tdStyle = {
+    padding:"13px 18px", borderBottom:"1px solid rgba(255,255,255,0.04)",
+    verticalAlign:"middle" as const,
+  };
 
   return (
-    <div>
-      <Header
-        title="Centre Financier"
-        subtitle="Trésorerie, factures et flux financiers du groupe"
-      />
+    <div style={{ padding:"28px 24px", background:"#0c0c0d", minHeight:"100vh" }}>
 
-      <div className="p-6 space-y-6">
-        {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          <KpiCard
-            title="Trésorerie totale groupe"
-            value={formatCurrency(totalCash)}
-            icon={Wallet}
-            iconColor="text-brand-600"
-            subtitle="Tous comptes consolidés"
-          />
-          <KpiCard
-            title="À encaisser (clients)"
-            value={formatCurrency(totalReceivable)}
-            icon={TrendingUp}
-            iconColor="text-emerald-600"
-            subtitle={`${receivable?.length || 0} facture(s) en cours`}
-          />
-          <KpiCard
-            title="À payer (fournisseurs)"
-            value={formatCurrency(totalPayable)}
-            icon={TrendingDown}
-            iconColor="text-orange-500"
-            alert={totalPayable > 0}
-            subtitle={`${payable?.length || 0} facture(s) à régler`}
-          />
-          <KpiCard
-            title="Paiements en retard"
-            value={formatCurrency(
-              overduePayable?.reduce((s, i) => s + (i.amount || 0), 0) || 0
-            )}
-            icon={AlertTriangle}
-            iconColor="text-red-600"
-            alert={(overduePayable?.length || 0) > 0}
-            subtitle={`${overduePayable?.length || 0} facture(s) échues`}
-          />
-        </div>
+      {/* ── Header ── */}
+      <div style={{ marginBottom:26 }}>
+        <p style={{ color:"#6b6b70", fontSize:12, fontWeight:600, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>
+          LVIF Group — Module
+        </p>
+        <h1 style={{ color:"#f3f3f4", fontSize:26, fontWeight:700, letterSpacing:-0.5 }}>Finance</h1>
+        <p style={{ color:"#6b6b70", fontSize:13, marginTop:5 }}>
+          Trésorerie, factures et flux financiers du groupe
+        </p>
+      </div>
 
-        {/* Trésorerie par compte */}
-        <section>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            Détail par compte bancaire
-          </h2>
-          {accounts && accounts.length > 0 ? (
-            <div className="bg-white rounded-xl border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50/50">
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Société</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Banque</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Compte</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Solde</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Mis à jour</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((account) => {
-                    const shortName =
-                      (account.companies as { short_name: string } | null)
-                        ?.short_name || "";
-                    return (
-                      <tr
-                        key={account.id}
-                        className="border-b last:border-0 hover:bg-gray-50/50"
-                      >
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={cn(
-                                "w-2 h-2 rounded-full",
-                                COMPANY_COLORS[shortName] || "bg-gray-400"
-                              )}
-                            />
-                            <span className="font-medium text-gray-900">
-                              {(account.companies as { name: string } | null)?.name || "—"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-gray-600">{account.bank_name}</td>
-                        <td className="px-5 py-3 text-gray-600">{account.account_name}</td>
-                        <td
-                          className={cn(
-                            "px-5 py-3 text-right font-bold",
-                            account.balance >= 0
-                              ? "text-gray-900"
-                              : "text-red-600"
-                          )}
-                        >
-                          {formatCurrency(account.balance)}
-                        </td>
-                        <td className="px-5 py-3 text-right text-xs text-gray-400">
-                          {account.updated_at ? formatDate(account.updated_at) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {/* Total */}
-                  <tr className="bg-gray-50 border-t-2">
-                    <td colSpan={3} className="px-5 py-3 font-semibold text-gray-900">
-                      Total consolidé
-                    </td>
-                    <td
-                      className={cn(
-                        "px-5 py-3 text-right font-bold text-base",
-                        totalCash >= 0 ? "text-gray-900" : "text-red-600"
-                      )}
-                    >
-                      {formatCurrency(totalCash)}
-                    </td>
-                    <td />
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState text="Les données bancaires apparaîtront ici après connexion Qonto / Pennylane / BNP." />
-          )}
-        </section>
+      {/* ── KPIs ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+        {[
+          { label:"Trésorerie groupe", value:formatCurrency(totalCash), sub:"Tous comptes consolidés", lime:true },
+          { label:"À encaisser (clients)", value:formatCurrency(totalReceivable), sub:`${receivable?.length||0} facture(s) en cours`, alert:false },
+          { label:"À payer (fournisseurs)", value:formatCurrency(totalPayable), sub:`${payable?.length||0} facture(s) à régler`, alert:totalPayable>0 },
+          { label:"Paiements en retard", value:formatCurrency(totalOverdue), sub:`${overduePayable.length} facture(s) échues`, alert:overduePayable.length>0 },
+        ].map((k)=>(
+          <div key={k.label} style={{
+            ...card,
+            borderColor: k.alert?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.05)",
+            display:"flex", flexDirection:"column", gap:6,
+          }}>
+            <span style={{ color:"#6b6b70", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.8 }}>{k.label}</span>
+            <span style={{ color:k.alert?"#f87171":k.lime?LIME:"#f3f3f4", fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{k.value}</span>
+            <span style={{ color:"#6b6b70", fontSize:11 }}>{k.sub}</span>
+          </div>
+        ))}
+      </div>
 
-        {/* Factures fournisseurs à payer */}
-        {(payable?.length || 0) > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Factures fournisseurs à régler
-            </h2>
-            <div className="bg-white rounded-xl border overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50/50">
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Fournisseur</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Société</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Statut</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Montant</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Échéance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payable!.map((inv, i) => {
-                    const isLate = inv.due_date && inv.due_date < today;
-                    return (
-                      <tr
-                        key={i}
-                        className={cn(
-                          "border-b last:border-0 hover:bg-gray-50/50",
-                          isLate && "bg-red-50/20"
-                        )}
-                      >
-                        <td className="px-5 py-3 font-medium text-gray-900">
-                          {inv.counterparty}
-                        </td>
-                        <td className="px-5 py-3 text-gray-500 text-xs">
-                          {(inv.companies as { short_name: string } | null)?.short_name || "—"}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span
-                            className={cn(
-                              "inline-flex px-2 py-0.5 rounded-full text-xs font-medium",
-                              isLate
-                                ? "bg-red-100 text-red-700"
-                                : "bg-yellow-100 text-yellow-700"
-                            )}
-                          >
-                            {isLate ? "En retard" : "En attente"}
+      {/* ── Comptes bancaires ── */}
+      <div style={{ marginBottom:20 }}>
+        <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
+          Comptes bancaires
+        </p>
+        {accounts&&accounts.length>0 ? (
+          <div style={{ ...card, padding:0, overflow:"hidden" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Société</th>
+                  <th style={thStyle}>Banque</th>
+                  <th style={thStyle}>Compte</th>
+                  <th style={{...thStyle, textAlign:"right"}}>Solde</th>
+                  <th style={{...thStyle, textAlign:"right"}}>Mis à jour</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map((account)=>{
+                  const shortName = (account.companies as {short_name:string}|null)?.short_name||"";
+                  const dot = COMPANY_DOT[shortName]||"#6b6b70";
+                  return (
+                    <tr key={account.id}>
+                      <td style={tdStyle}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <span style={{ width:8, height:8, borderRadius:"50%", background:dot, display:"inline-block", flexShrink:0 }} />
+                          <span style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>
+                            {(account.companies as {name:string}|null)?.name||"—"}
                           </span>
-                        </td>
-                        <td className="px-5 py-3 text-right font-semibold text-gray-900">
-                          {formatCurrency(inv.amount)}
-                        </td>
-                        <td
-                          className={cn(
-                            "px-5 py-3 text-right text-xs font-medium",
-                            isLate ? "text-red-600" : "text-gray-500"
-                          )}
-                        >
-                          {inv.due_date ? formatDate(inv.due_date) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                        </div>
+                      </td>
+                      <td style={tdStyle}><span style={{ color:"#a3a3a8", fontSize:12 }}>{account.bank_name}</span></td>
+                      <td style={tdStyle}><span style={{ color:"#a3a3a8", fontSize:12 }}>{account.account_name}</span></td>
+                      <td style={{...tdStyle, textAlign:"right"}}>
+                        <span style={{ color:account.balance>=0?"#f3f3f4":"#f87171", fontSize:14, fontWeight:700 }}>
+                          {formatCurrency(account.balance)}
+                        </span>
+                      </td>
+                      <td style={{...tdStyle, textAlign:"right"}}>
+                        <span style={{ color:"#6b6b70", fontSize:11 }}>
+                          {account.updated_at?formatDate(account.updated_at):"—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Total row */}
+                <tr style={{ background:"rgba(197,247,58,0.04)" }}>
+                  <td colSpan={3} style={{...tdStyle, borderBottom:"none"}}>
+                    <span style={{ color:"#e9e9ea", fontSize:13, fontWeight:700 }}>Total consolidé</span>
+                  </td>
+                  <td style={{...tdStyle, textAlign:"right", borderBottom:"none"}}>
+                    <span style={{ color:LIME, fontSize:16, fontWeight:700 }}>{formatCurrency(totalCash)}</span>
+                  </td>
+                  <td style={{...tdStyle, borderBottom:"none"}} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState text="Les données bancaires apparaîtront ici après connexion Qonto / Pennylane / BNP." />
         )}
       </div>
+
+      {/* ── Factures fournisseurs ── */}
+      {(payable?.length||0)>0 && (
+        <div style={{ marginBottom:20 }}>
+          <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
+            Factures fournisseurs à régler
+          </p>
+          <div style={{ ...card, padding:0, overflow:"hidden" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Fournisseur</th>
+                  <th style={thStyle}>Société</th>
+                  <th style={thStyle}>Statut</th>
+                  <th style={{...thStyle, textAlign:"right"}}>Montant</th>
+                  <th style={{...thStyle, textAlign:"right"}}>Échéance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payable!.map((inv,i)=>{
+                  const isLate = inv.due_date&&inv.due_date<today;
+                  return (
+                    <tr key={i} style={{ background:isLate?"rgba(239,68,68,0.04)":"transparent" }}>
+                      <td style={tdStyle}><span style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>{inv.counterparty}</span></td>
+                      <td style={tdStyle}>
+                        <span style={{ color:"#a3a3a8", fontSize:11, fontWeight:600 }}>
+                          {(inv.companies as {short_name:string}|null)?.short_name||"—"}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          display:"inline-flex", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:600,
+                          background:isLate?"rgba(239,68,68,0.15)":"rgba(234,179,8,0.15)",
+                          color:isLate?"#fca5a5":"#fde68a",
+                        }}>
+                          {isLate?"En retard":"En attente"}
+                        </span>
+                      </td>
+                      <td style={{...tdStyle, textAlign:"right"}}>
+                        <span style={{ color:"#f3f3f4", fontSize:13, fontWeight:700 }}>{formatCurrency(inv.amount)}</span>
+                      </td>
+                      <td style={{...tdStyle, textAlign:"right"}}>
+                        <span style={{ color:isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
+                          {inv.due_date?formatDate(inv.due_date):"—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Factures clients ── */}
+      {(receivable?.length||0)>0 && (
+        <div style={{ marginBottom:20 }}>
+          <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
+            Factures clients à encaisser
+          </p>
+          <div style={{ ...card, padding:0, overflow:"hidden" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Client</th>
+                  <th style={thStyle}>Société</th>
+                  <th style={thStyle}>Statut</th>
+                  <th style={{...thStyle, textAlign:"right"}}>Montant</th>
+                  <th style={{...thStyle, textAlign:"right"}}>Échéance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receivable!.map((inv,i)=>{
+                  const isLate = inv.due_date&&inv.due_date<today;
+                  return (
+                    <tr key={i} style={{ background:isLate?"rgba(239,68,68,0.04)":"transparent" }}>
+                      <td style={tdStyle}><span style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>{inv.counterparty}</span></td>
+                      <td style={tdStyle}>
+                        <span style={{ color:"#a3a3a8", fontSize:11, fontWeight:600 }}>
+                          {(inv.companies as {short_name:string}|null)?.short_name||"—"}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          display:"inline-flex", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:600,
+                          background:isLate?"rgba(239,68,68,0.15)":"rgba(197,247,58,0.12)",
+                          color:isLate?"#fca5a5":"#c5f73a",
+                        }}>
+                          {isLate?"En retard":"À encaisser"}
+                        </span>
+                      </td>
+                      <td style={{...tdStyle, textAlign:"right"}}>
+                        <span style={{ color:LIME, fontSize:13, fontWeight:700 }}>{formatCurrency(inv.amount)}</span>
+                      </td>
+                      <td style={{...tdStyle, textAlign:"right"}}>
+                        <span style={{ color:isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
+                          {inv.due_date?formatDate(inv.due_date):"—"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state if no accounts and no invoices */}
+      {(!accounts||accounts.length===0)&&(receivable?.length||0)===0&&(payable?.length||0)===0 && (
+        <EmptyState text="Les données financières apparaîtront ici après connexion Qonto / Pennylane / BNP." />
+      )}
     </div>
   );
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="bg-white rounded-xl border border-dashed border-gray-200 p-10 text-center">
-      <Wallet className="w-8 h-8 text-gray-300 mx-auto mb-3" />
-      <p className="text-sm font-medium text-gray-500">{text}</p>
+    <div style={{
+      background:"linear-gradient(160deg,#1b1b1d,#141416)",
+      border:"1px dashed rgba(255,255,255,0.08)", borderRadius:18,
+      padding:"40px 20px", textAlign:"center",
+    }}>
+      <div style={{ fontSize:32, marginBottom:10 }}>🏦</div>
+      <p style={{ color:"#f3f3f4", fontSize:14, fontWeight:600, marginBottom:6 }}>Données en attente</p>
+      <p style={{ color:"#6b6b70", fontSize:12 }}>{text}</p>
     </div>
   );
 }
