@@ -59,14 +59,14 @@ export async function POST(request: Request) {
   }
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
 
   try {
     const loginData = await ewayPost("/LogIn", {
-      userName:                process.env.EWAY_USERNAME,
-      passwordHash:            md5(process.env.EWAY_PASSWORD),
+      userName:                process.env.EWAY_USERNAME!,
+      passwordHash:            md5(process.env.EWAY_PASSWORD!),
       appVersion:              "LVIF Dashboard 1.0.0",
       clientMachineIdentifier: "lvif-control-center",
       clientMachineName:       "LVIF-CONTROL-CENTER",
