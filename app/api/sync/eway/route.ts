@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 // URL spécifique au compte LVIF (sas_lvif = identifiant de l'instance)
 const EWAY_BASE = "https://hosting.eway-crm.com/sas_lvif/API.svc";
 
-function md5(str) {
+function md5(str: string) {
   return createHash("md5").update(str).digest("hex");
 }
 
