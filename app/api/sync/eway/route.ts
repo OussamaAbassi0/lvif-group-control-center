@@ -1,96 +1,114 @@
 /**
  * POST /api/sync/eway
- * Synchronisation eWay CRM → Supabase
- * Appelé par n8n (cron toutes les 15 min)
+ * Synchronisation eWay CRM (WCF API) → Supabase
  * Sécurisé par CRON_SECRET header
+ *
+ * eWay CRM utilise une API WCF :
+ *   Base URL : https://hosting.eway-crm.com/sas_lvif/API.svc
+ *   Auth     : POST /LogIn avec userName + passwordHash (MD5)
+ *   Leads    = "Deals" dans l'interface eWay
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextResponse }  from "next/server";
+import { createHash }    from "crypto";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
-export async function POST(request: Request) {
-  // Vérification du secret cron
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+// URL spécifique au compte LVIF (sas_lvif = identifiant de l'instance)
+const EWAY_BASE = "https://hosting.eway-crm.com/sas_lvif/API.svc";
+
+function md5(str) {
+  return createHash("md5").update(str).digest("hex");
+}
+
+async function ewayPost(path, body) {
+  const res = await fetch(`${EWAY_BASE}${path}`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`eWay ${path} HTTP ${res.status}`);
+  return res.json();
+}
+
+const STAGE_MAP = {
+  "":              "prospect",
+  "New":           "prospect",
+  "Qualification": "qualification",
+  "Proposal":      "proposition",
+  "Negotiation":   "negociation",
+  "Won":           "gagne",
+  "Lost":          "perdu",
+  "Closed":        "gagne",
+};
+
+function mapStage(stage) {
+  if (!stage) return "prospect";
+  if (stage in STAGE_MAP) return STAGE_MAP[stage];
+  for (const [k, v] of Object.entries(STAGE_MAP)) {
+    if (stage.toLowerCase().includes(k.toLowerCase())) return v;
+  }
+  return "prospect";
+}
+
+export async function POST(request) {
+  const auth = request.headers.get("authorization");
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Client service role (bypass RLS pour les syncs)
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 
   try {
-    // 1. Récupérer les deals depuis eWay CRM
-    const ewayResponse = await fetch(
-      `${process.env.EWAY_INSTANCE_URL}/api/v3/deals?fields=id,name,contact,amount,stage,owner,nextActionDate,nextAction`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.EWAY_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const loginData = await ewayPost("/LogIn", {
+      userName:                process.env.EWAY_USERNAME,
+      passwordHash:            md5(process.env.EWAY_PASSWORD),
+      appVersion:              "LVIF Dashboard 1.0.0",
+      clientMachineIdentifier: "lvif-control-center",
+      clientMachineName:       "LVIF-CONTROL-CENTER",
+      databaseVersion:         0,
+    });
 
-    if (!ewayResponse.ok) {
-      throw new Error(`eWay API error: ${ewayResponse.status}`);
+    if (loginData.ReturnCode !== "rcSuccess") {
+      throw new Error(`eWay login failed: ${loginData.Description ?? loginData.ReturnCode}`);
     }
 
-    const ewayData = await ewayResponse.json();
-    const deals = ewayData.data || [];
+    const sessionId = loginData.SessionId;
+    const leadsData = await ewayPost("/GetLeads", { sessionId });
 
-    // 2. Upsert dans Supabase
-    const upsertData = deals.map((deal: Record<string, unknown>) => ({
-      eway_id: String(deal.id),
-      title: deal.name || "Sans titre",
-      client_name: (deal.contact as { name?: string })?.name || null,
-      amount: deal.amount ? Number(deal.amount) : null,
-      status: mapEwayStage(String(deal.stage || "")),
-      next_action: deal.nextAction || null,
-      next_action_date: deal.nextActionDate || null,
-      synced_at: new Date().toISOString(),
-    }));
+    if (leadsData.ReturnCode !== "rcSuccess") {
+      throw new Error(`GetLeads failed: ${leadsData.Description ?? leadsData.ReturnCode}`);
+    }
 
-    const { error, count } = await supabase
-      .from("deals")
-      .upsert(upsertData, {
-        onConflict: "eway_id",
-        count: "exact",
-      });
+    const leads = leadsData.Data ?? [];
+    const { data: companies } = await supabase.from("companies").select("id, short_name");
+    const lvifId = companies?.find((c) => c.short_name === "LVIF")?.id ?? null;
 
+    const rows = leads.map((lead) => ({
+      eway_id:          lead.ItemGUID ?? String(lead.ItemID ?? ""),
+      title:            lead.FileAs ?? lead.Subject ?? "Sans titre",
+      client_name:      lead.ContactName ?? lead.CompanyName ?? null,
+      amount:           lead.Amount != null ? Number(lead.Amount) : null,
+      status:           mapStage(lead.LeadStatusEn ?? lead.StageName),
+      next_action:      lead.NextTask ?? lead.LastNote ?? null,
+      next_action_date: lead.NextTaskDate ?? null,
+      company_id:       lvifId,
+      synced_at:        new Date().toISOString(),
+    })).filter((r) => r.eway_id);
+
+    const { error, count } = await supabase.from("deals").upsert(rows, { onConflict: "eway_id", count: "exact" });
     if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      synced: count,
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("[sync/eway] Error:", error);
-    return NextResponse.json(
-      {
-        error: "Sync failed",
-        detail: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
-}
+    await ewayPost("/LogOut", { sessionId }).catch(() => {});
 
-// Mapping des statuts eWay → notre enum
-function mapEwayStage(stage: string): string {
-  const map: Record<string, string> = {
-    Lead:          "prospect",
-    Prospect:      "prospect",
-    Qualification: "qualification",
-    Proposal:      "proposition",
-    Negotiation:   "negociation",
-    Won:           "gagne",
-    Lost:          "perdu",
-    Closed:        "gagne",
-  };
-  return map[stage] || "prospect";
+    return NextResponse.json({ success: true, synced: count, total: leads.length, timestamp: new Date().toISOString() });
+
+  } catch (err) {
+    console.error("[sync/eway]", err);
+    return NextResponse.json({ error: "Sync failed", detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  }
 }
