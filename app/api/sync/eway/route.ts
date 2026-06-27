@@ -84,11 +84,12 @@ export async function POST(request: Request) {
       throw new Error(`GetLeads failed: ${leadsData.Description ?? leadsData.ReturnCode}`);
     }
 
-    const leads = leadsData.Data ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leads: any[] = leadsData.Data ?? [];
     const { data: companies } = await supabase.from("companies").select("id, short_name");
     const lvifId = companies?.find((c) => c.short_name === "LVIF")?.id ?? null;
 
-    const rows = leads.map((lead) => ({
+    const rows = leads.map((lead: any) => ({
       eway_id:          lead.ItemGUID ?? String(lead.ItemID ?? ""),
       title:            lead.FileAs ?? lead.Subject ?? "Sans titre",
       client_name:      lead.ContactName ?? lead.CompanyName ?? null,
