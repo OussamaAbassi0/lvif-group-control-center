@@ -129,14 +129,14 @@ function EvolutionCA() {
       </div>
       <div style={{ display:"flex", alignItems:"flex-end", gap:8, height:120 }}>
         {CA_HISTORY.map((d) => {
-          const h = Math.round((d.ca / max) * 100);
+          const h = Math.round((d.ca / max) * 80);
           return (
             <div key={d.year} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
               <span style={{ color: d.ytd ? LIME : "#5a5a60", fontSize:9, fontWeight:700 }}>
                 {fmt(d.ca)}
               </span>
               <div style={{
-                width:"100%", height:`${h}%`,
+                width:"100%", height:h,
                 borderRadius:"5px 5px 3px 3px",
                 background: d.ytd
                   ? "linear-gradient(180deg,#C5F73A,#9bd219)"
