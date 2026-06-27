@@ -22,7 +22,7 @@ function md5(str: string) {
   return createHash("md5").update(str).digest("hex");
 }
 
-async function ewayPost(path, body) {
+async function ewayPost(path: string, body: Record<string, unknown>) {
   const res = await fetch(`${EWAY_BASE}${path}`, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
@@ -43,7 +43,7 @@ const STAGE_MAP = {
   "Closed":        "gagne",
 };
 
-function mapStage(stage) {
+function mapStage(stage: string | null | undefined) {
   if (!stage) return "prospect";
   if (stage in STAGE_MAP) return STAGE_MAP[stage];
   for (const [k, v] of Object.entries(STAGE_MAP)) {
@@ -52,7 +52,7 @@ function mapStage(stage) {
   return "prospect";
 }
 
-export async function POST(request) {
+export async function POST(request: Request) {
   const auth = request.headers.get("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
