@@ -32,7 +32,7 @@ async function ewayPost(path: string, body: Record<string, unknown>) {
   return res.json();
 }
 
-const STAGE_MAP = {
+const STAGE_MAP: { [key: string]: string } = {
   "":              "prospect",
   "New":           "prospect",
   "Qualification": "qualification",
