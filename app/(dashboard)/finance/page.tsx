@@ -7,6 +7,25 @@ const COMPANY_DOT: Record<string,string> = {
   LVIF:"#C5F73A", ENO:"#a78bfa", TJM:"#34d399", SCI:"#f59e0b", HLD:"#94a3b8",
 };
 
+// ─── Déclarations Intermittents — Source: SUIVI FACTURE - DECLA INTERMITTENT.xlsx ───
+// Mise à jour : 28/06/2026 | Total HT dû : 9 634,92 € | En retard : 7 700,25 €
+const DECLA_INTERMITTENTS = [
+  // En retard — échéance 24/06/2026 (dépassée)
+  { societe:"Axel Carre",         event:"Test sol LED / Prépa",       montant:"72,00 €",    echeance:"24/06/2026", retard:true  },
+  { societe:"Michael Guibert EI", event:"Stock",                      montant:"1 825,00 €", echeance:"24/06/2026", retard:true  },
+  { societe:"I-RENT (Ilyes)",     event:"50 Ans Decathlon",           montant:"693,25 €",   echeance:"24/06/2026", retard:true  },
+  { societe:"Amaury",             event:"Leaders Summit",             montant:"840,00 €",   echeance:"24/06/2026", retard:true  },
+  { societe:"GRMP (Camille)",     event:"Leaders Summit",             montant:"1 160,00 €", echeance:"24/06/2026", retard:true  },
+  { societe:"GRMP (Camille)",     event:"50 Ans Decathlon",           montant:"160,00 €",   echeance:"24/06/2026", retard:true  },
+  { societe:"Josué Ngoie",        event:"Leaders Summit",             montant:"2 450,00 €", echeance:"24/06/2026", retard:true  },
+  { societe:"Pump Society",       event:"Leaders Summit",             montant:"500,00 €",   echeance:"24/06/2026", retard:true  },
+  // À venir — échéance 30/06/2026
+  { societe:"Pump Society",       event:"LVI - Parc de la Villette",  montant:"600,00 €",   echeance:"30/06/2026", retard:false },
+  { societe:"Pump Society",       event:"Note de frais",              montant:"234,67 €",   echeance:"30/06/2026", retard:false },
+  { societe:"Visions",            event:"Réalisateur / Cadreur",      montant:"700,00 €",   echeance:"30/06/2026", retard:false },
+  { societe:"Enzo Fernet",        event:"Ramatuelle 15/06",           montant:"400,00 €",   echeance:"30/06/2026", retard:false },
+];
+
 export default async function FinancePage() {
   const supabase = await createClient();
   const today = new Date().toISOString().split("T")[0];
@@ -68,14 +87,14 @@ export default async function FinancePage() {
       {/* ── KPIs ── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
         {[
-          { label:"Trésorerie groupe", value:formatCurrency(totalCash), sub:"Tous comptes consolidés", lime:true },
-          { label:"À encaisser (clients)", value:formatCurrency(totalReceivable), sub:`${receivable?.length||0} facture(s) en cours`, alert:false },
-          { label:"À payer (fournisseurs)", value:formatCurrency(totalPayable), sub:`${payable?.length||0} facture(s) à régler`, alert:totalPayable>0 },
-          { label:"Paiements en retard", value:formatCurrency(totalOverdue), sub:`${overduePayable.length} facture(s) échues`, alert:overduePayable.length>0 },
+          { label:"Trésorerie groupe",      value:formatCurrency(totalCash),        sub:"Tous comptes consolidés",                    lime:true,  alert:false },
+          { label:"À encaisser (clients)",  value:formatCurrency(totalReceivable),  sub:`${receivable?.length||0} facture(s) en cours`, lime:false, alert:false },
+          { label:"À payer (fournisseurs)", value:formatCurrency(totalPayable),     sub:`${payable?.length||0} facture(s) à régler`,    lime:false, alert:totalPayable>0 },
+          { label:"Paiements en retard",    value:formatCurrency(totalOverdue),     sub:`${overduePayable.length} facture(s) échues`,    lime:false, alert:overduePayable.length>0 },
         ].map((k)=>(
           <div key={k.label} style={{
             ...card,
-            borderColor: k.alert?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.05)",
+            borderColor:k.alert?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.05)",
             display:"flex", flexDirection:"column", gap:6,
           }}>
             <span style={{ color:"#6b6b70", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.8 }}>{k.label}</span>
@@ -85,19 +104,18 @@ export default async function FinancePage() {
         ))}
       </div>
 
-
       {/* ── Déclarations Intermittents ── */}
       <div style={{ marginBottom:24 }}>
         <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:12 }}>
-          Déclarations Intermittents — SUIVI FACTURE
+          Déclarations Intermittents — Suivi Facture
         </p>
         {/* Mini KPIs */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:14 }}>
-          {[
-            { label:"Total HT dû",      value:"9 634,92 €",  sub:"12 factures en attente",          alert:false, lime:false },
-            { label:"Dont en retard",   value:"7 700,25 €",  sub:"8 factures — éch. 24/06/2026",    alert:true,  lime:false },
-            { label:"À venir",          value:"1 934,67 €",  sub:"4 factures — éch. 30/06/2026",    alert:false, lime:false },
-          ].map((k)=>(
+          {([
+            { label:"Total HT dû",    value:"9 634,92 €", sub:"12 factures en attente",       alert:false },
+            { label:"Dont en retard", value:"7 700,25 €", sub:"8 factures — éch. 24/06/2026", alert:true  },
+            { label:"À venir",        value:"1 934,67 €", sub:"4 factures — éch. 30/06/2026", alert:false },
+          ] as const).map((k)=>(
             <div key={k.label} style={{
               ...card,
               borderColor:k.alert?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.05)",
@@ -109,7 +127,7 @@ export default async function FinancePage() {
             </div>
           ))}
         </div>
-        {/* Détail table */}
+        {/* Table détaillée */}
         <div style={{ ...card, padding:0, overflow:"hidden" }}>
           <table style={{ width:"100%", borderCollapse:"collapse" }}>
             <thead>
@@ -143,7 +161,7 @@ export default async function FinancePage() {
                   </td>
                 </tr>
               ))}
-              {/* Total row */}
+              {/* Ligne total */}
               <tr style={{ background:"rgba(255,255,255,0.02)" }}>
                 <td colSpan={3} style={{...tdStyle,borderBottom:"none"}}>
                   <span style={{ color:"#e9e9ea", fontSize:12, fontWeight:700 }}>Total HT dû</span>
@@ -171,8 +189,8 @@ export default async function FinancePage() {
                   <th style={thStyle}>Société</th>
                   <th style={thStyle}>Banque</th>
                   <th style={thStyle}>Compte</th>
-                  <th style={{...thStyle, textAlign:"right"}}>Solde</th>
-                  <th style={{...thStyle, textAlign:"right"}}>Mis à jour</th>
+                  <th style={{...thStyle,textAlign:"right"}}>Solde</th>
+                  <th style={{...thStyle,textAlign:"right"}}>Mis à jour</th>
                 </tr>
               </thead>
               <tbody>
@@ -191,12 +209,12 @@ export default async function FinancePage() {
                       </td>
                       <td style={tdStyle}><span style={{ color:"#a3a3a8", fontSize:12 }}>{account.bank_name}</span></td>
                       <td style={tdStyle}><span style={{ color:"#a3a3a8", fontSize:12 }}>{account.account_name}</span></td>
-                      <td style={{...tdStyle, textAlign:"right"}}>
+                      <td style={{...tdStyle,textAlign:"right"}}>
                         <span style={{ color:account.balance>=0?"#f3f3f4":"#f87171", fontSize:14, fontWeight:700 }}>
                           {formatCurrency(account.balance)}
                         </span>
                       </td>
-                      <td style={{...tdStyle, textAlign:"right"}}>
+                      <td style={{...tdStyle,textAlign:"right"}}>
                         <span style={{ color:"#6b6b70", fontSize:11 }}>
                           {account.updated_at?formatDate(account.updated_at):"—"}
                         </span>
@@ -204,15 +222,14 @@ export default async function FinancePage() {
                     </tr>
                   );
                 })}
-                {/* Total row */}
                 <tr style={{ background:"rgba(197,247,58,0.04)" }}>
-                  <td colSpan={3} style={{...tdStyle, borderBottom:"none"}}>
+                  <td colSpan={3} style={{...tdStyle,borderBottom:"none"}}>
                     <span style={{ color:"#e9e9ea", fontSize:13, fontWeight:700 }}>Total consolidé</span>
                   </td>
-                  <td style={{...tdStyle, textAlign:"right", borderBottom:"none"}}>
+                  <td style={{...tdStyle,textAlign:"right",borderBottom:"none"}}>
                     <span style={{ color:LIME, fontSize:16, fontWeight:700 }}>{formatCurrency(totalCash)}</span>
                   </td>
-                  <td style={{...tdStyle, borderBottom:"none"}} />
+                  <td style={{...tdStyle,borderBottom:"none"}} />
                 </tr>
               </tbody>
             </table>
@@ -235,8 +252,8 @@ export default async function FinancePage() {
                   <th style={thStyle}>Fournisseur</th>
                   <th style={thStyle}>Société</th>
                   <th style={thStyle}>Statut</th>
-                  <th style={{...thStyle, textAlign:"right"}}>Montant</th>
-                  <th style={{...thStyle, textAlign:"right"}}>Échéance</th>
+                  <th style={{...thStyle,textAlign:"right"}}>Montant</th>
+                  <th style={{...thStyle,textAlign:"right"}}>Échéance</th>
                 </tr>
               </thead>
               <tbody>
@@ -259,10 +276,10 @@ export default async function FinancePage() {
                           {isLate?"En retard":"En attente"}
                         </span>
                       </td>
-                      <td style={{...tdStyle, textAlign:"right"}}>
+                      <td style={{...tdStyle,textAlign:"right"}}>
                         <span style={{ color:"#f3f3f4", fontSize:13, fontWeight:700 }}>{formatCurrency(inv.amount)}</span>
                       </td>
-                      <td style={{...tdStyle, textAlign:"right"}}>
+                      <td style={{...tdStyle,textAlign:"right"}}>
                         <span style={{ color:isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
                           {inv.due_date?formatDate(inv.due_date):"—"}
                         </span>
@@ -289,8 +306,8 @@ export default async function FinancePage() {
                   <th style={thStyle}>Client</th>
                   <th style={thStyle}>Société</th>
                   <th style={thStyle}>Statut</th>
-                  <th style={{...thStyle, textAlign:"right"}}>Montant</th>
-                  <th style={{...thStyle, textAlign:"right"}}>Échéance</th>
+                  <th style={{...thStyle,textAlign:"right"}}>Montant</th>
+                  <th style={{...thStyle,textAlign:"right"}}>Échéance</th>
                 </tr>
               </thead>
               <tbody>
@@ -313,10 +330,10 @@ export default async function FinancePage() {
                           {isLate?"En retard":"À encaisser"}
                         </span>
                       </td>
-                      <td style={{...tdStyle, textAlign:"right"}}>
+                      <td style={{...tdStyle,textAlign:"right"}}>
                         <span style={{ color:LIME, fontSize:13, fontWeight:700 }}>{formatCurrency(inv.amount)}</span>
                       </td>
-                      <td style={{...tdStyle, textAlign:"right"}}>
+                      <td style={{...tdStyle,textAlign:"right"}}>
                         <span style={{ color:isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
                           {inv.due_date?formatDate(inv.due_date):"—"}
                         </span>
@@ -330,7 +347,6 @@ export default async function FinancePage() {
         </div>
       )}
 
-      {/* Empty state if no accounts and no invoices */}
       {(!accounts||accounts.length===0)&&(receivable?.length||0)===0&&(payable?.length||0)===0 && (
         <EmptyState text="Les données financières apparaîtront ici après connexion Qonto / Pennylane / BNP." />
       )}
