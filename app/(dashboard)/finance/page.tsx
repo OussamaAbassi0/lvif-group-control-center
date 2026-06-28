@@ -85,6 +85,79 @@ export default async function FinancePage() {
         ))}
       </div>
 
+
+      {/* ── Déclarations Intermittents ── */}
+      <div style={{ marginBottom:24 }}>
+        <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:12 }}>
+          Déclarations Intermittents — SUIVI FACTURE
+        </p>
+        {/* Mini KPIs */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:14 }}>
+          {[
+            { label:"Total HT dû",      value:"9 634,92 €",  sub:"12 factures en attente",          alert:false, lime:false },
+            { label:"Dont en retard",   value:"7 700,25 €",  sub:"8 factures — éch. 24/06/2026",    alert:true,  lime:false },
+            { label:"À venir",          value:"1 934,67 €",  sub:"4 factures — éch. 30/06/2026",    alert:false, lime:false },
+          ].map((k)=>(
+            <div key={k.label} style={{
+              ...card,
+              borderColor:k.alert?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.05)",
+              display:"flex", flexDirection:"column", gap:6,
+            }}>
+              <span style={{ color:"#6b6b70", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.8 }}>{k.label}</span>
+              <span style={{ color:k.alert?"#f87171":"#f3f3f4", fontSize:22, fontWeight:700, letterSpacing:-0.5 }}>{k.value}</span>
+              <span style={{ color:"#6b6b70", fontSize:11 }}>{k.sub}</span>
+            </div>
+          ))}
+        </div>
+        {/* Détail table */}
+        <div style={{ ...card, padding:0, overflow:"hidden" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Intermittent</th>
+                <th style={thStyle}>Événement</th>
+                <th style={thStyle}>Statut</th>
+                <th style={{...thStyle,textAlign:"right"}}>Montant HT</th>
+                <th style={{...thStyle,textAlign:"right"}}>Échéance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DECLA_INTERMITTENTS.map((row,i)=>(
+                <tr key={i} style={{ background:row.retard?"rgba(239,68,68,0.04)":"transparent" }}>
+                  <td style={tdStyle}><span style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>{row.societe}</span></td>
+                  <td style={tdStyle}><span style={{ color:"#a3a3a8", fontSize:12 }}>{row.event}</span></td>
+                  <td style={tdStyle}>
+                    <span style={{
+                      display:"inline-flex", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:600,
+                      background:row.retard?"rgba(239,68,68,0.15)":"rgba(234,179,8,0.15)",
+                      color:row.retard?"#fca5a5":"#fde68a",
+                    }}>
+                      {row.retard?"En retard":"À venir"}
+                    </span>
+                  </td>
+                  <td style={{...tdStyle,textAlign:"right"}}>
+                    <span style={{ color:row.retard?"#f87171":"#f3f3f4", fontSize:13, fontWeight:700 }}>{row.montant}</span>
+                  </td>
+                  <td style={{...tdStyle,textAlign:"right"}}>
+                    <span style={{ color:row.retard?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>{row.echeance}</span>
+                  </td>
+                </tr>
+              ))}
+              {/* Total row */}
+              <tr style={{ background:"rgba(255,255,255,0.02)" }}>
+                <td colSpan={3} style={{...tdStyle,borderBottom:"none"}}>
+                  <span style={{ color:"#e9e9ea", fontSize:12, fontWeight:700 }}>Total HT dû</span>
+                </td>
+                <td style={{...tdStyle,textAlign:"right",borderBottom:"none"}}>
+                  <span style={{ color:"#f3f3f4", fontSize:14, fontWeight:700 }}>9 634,92 €</span>
+                </td>
+                <td style={{...tdStyle,borderBottom:"none"}} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* ── Comptes bancaires ── */}
       <div style={{ marginBottom:20 }}>
         <p style={{ color:"#6b6b70", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:10 }}>
