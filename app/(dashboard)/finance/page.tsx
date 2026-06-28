@@ -28,12 +28,12 @@ const DECLA_INTERMITTENTS = [
 interface QontoAccount {
   slug: string; iban: string; bic: string; currency: string;
   balance_cents: number; authorized_balance_cents: number;
-  name: string; bank_account_type?: string; updated_at: string;
+  name: string; bank_account_type?: string; status: string; updated_at: string;
 }
 interface QontoData {
   accounts: QontoAccount[];
   qonto_balance: number;
-  bnp_balance: number;
+  bnp_balance: number | null;
   total: number;
   charges_fixes: number;
   error?: string;
@@ -49,27 +49,22 @@ async function fetchQonto(): Promise<QontoData | null> {
       headers: { Authorization: `${login}:${secret}`, "Content-Type": "application/json" },
       next: { revalidate: 300 },
     });
-    if (!res.ok) return { accounts:[], qonto_balance:0, bnp_balance:0, total:0, charges_fixes:25577, error:`HTTP ${res.status}` };
+    if (!res.ok) return { accounts:[], qonto_balance:0, bnp_balance:null, total:0, charges_fixes:25577, error:`HTTP ${res.status}` };
 
     const data = await res.json();
     const accounts: QontoAccount[] = data.organization?.bank_accounts ?? [];
 
-    const bnpAccounts = accounts.filter(
-      (a) => a.bank_account_type === "external" || (a.name ?? "").toLowerCase().includes("bnp")
-    );
-    const qontoAccounts = accounts.filter(
-      (a) => !bnpAccounts.includes(a)
-    );
+    // authorized_balance_cents matches what Qonto app displays (excludes pending transactions)
+    // BNP not returned by Qonto partner API (aggregated accounts are app-only)
+    const activeAccounts = accounts.filter(a => a.status === "active");
+    const qontoBalance = activeAccounts.reduce((s,a) => s + (a.authorized_balance_cents ?? 0) / 100, 0);
 
-    const qontoBalance = qontoAccounts.reduce((s,a) => s + (a.balance_cents ?? 0) / 100, 0);
-    const bnpBalance   = bnpAccounts.reduce((s,a)   => s + (a.balance_cents ?? 0) / 100, 0);
-
-    // Charges fixes = Dépenses structurelles + Frais bancaires (Qonto Trésorerie > Prévision, Juin 2026)
+    // Charges fixes = Dép. struct. (14 507) + Frais bancaires remb. prêts (11 070) — Qonto Prévi. Juin 2026
     const CHARGES_FIXES = 25577;
 
-    return { accounts, qonto_balance: qontoBalance, bnp_balance: bnpBalance, total: qontoBalance + bnpBalance, charges_fixes: CHARGES_FIXES };
+    return { accounts, qonto_balance: qontoBalance, bnp_balance: null, total: qontoBalance, charges_fixes: CHARGES_FIXES };
   } catch {
-    return { accounts:[], qonto_balance:0, bnp_balance:0, total:0, charges_fixes:25577, error:"Fetch failed" };
+    return { accounts:[], qonto_balance:0, bnp_balance:null, total:0, charges_fixes:25577, error:"Fetch failed" };
   }
 }
 
@@ -148,8 +143,8 @@ export default async function FinancePage() {
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14 }}>
             {[
               { label:"Solde Qonto",   value: fmt(qonto.qonto_balance), sub:"Compte principal Qonto",        lime:true,  alert:false },
-              { label:"Solde BNP",     value: fmt(qonto.bnp_balance),   sub:"Compte BNP connecté",           lime:false, alert:false },
-              { label:"Total tréso",   value: fmt(qonto.total),         sub:"Qonto + BNP consolidé",         lime:true,  alert:false },
+              { label:"Solde BNP",     value: qonto.bnp_balance === null ? "Non dispo API" : fmt(qonto.bnp_balance), sub:"Compte BNP — API Qonto app uniquement", lime:false, alert:false },
+              { label:"Total Qonto",   value: fmt(qonto.total),         sub:"Comptes Qonto actifs",           lime:true,  alert:false },
               { label:"Charges fixes", value: fmt(qonto.charges_fixes), sub:"Dép. struct. + Remb. prêts",    lime:false, alert:true  },
             ].map((k)=>(
               <div key={k.label} style={{
@@ -184,21 +179,20 @@ export default async function FinancePage() {
                 </tr>
               </thead>
               <tbody>
-                {qonto.accounts.map((acc) => (
+                {qonto.accounts.filter(a => a.status === "active").map((acc) => (
                   <tr key={acc.slug}>
                     <td style={tdStyle}><span style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>{acc.name || acc.slug}</span></td>
                     <td style={tdStyle}><span style={{ color:"#a3a3a8", fontSize:12, fontFamily:"monospace" }}>{acc.iban?.replace(/(.{4})/g,"$1 ").trim() || "—"}</span></td>
                     <td style={tdStyle}>
                       <span style={{
                         display:"inline-flex", padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:600,
-                        background:acc.bank_account_type==="external"?"rgba(234,179,8,0.12)":"rgba(197,247,58,0.10)",
-                        color:acc.bank_account_type==="external"?"#fde68a":LIME,
+                        background:"rgba(197,247,58,0.10)", color:LIME,
                       }}>
-                        {acc.bank_account_type==="external"?"Externe":"Qonto"}
+                        Qonto
                       </span>
                     </td>
                     <td style={{...tdStyle,textAlign:"right"}}>
-                      <span style={{ color:"#f3f3f4", fontSize:14, fontWeight:700 }}>{fmt((acc.balance_cents ?? 0) / 100)}</span>
+                      <span style={{ color:"#f3f3f4", fontSize:14, fontWeight:700 }}>{fmt((acc.authorized_balance_cents ?? 0) / 100)}</span>
                     </td>
                   </tr>
                 ))}
