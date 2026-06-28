@@ -8,7 +8,7 @@ const COMPANY_DOT: Record<string,string> = {
 };
 
 // ─── Déclarations Intermittents — Source: SUIVI FACTURE - DECLA INTERMITTENT.xlsx ───
-// Mise à jour : 28/06/2026 | Total HT dû : 9 634,92 € | En retard : 7 700,25 €
+// Mise à jour : 29/06/2026 — Qonto live | Total HT dû : 9 634,92 € | En retard : 7 700,25 €
 const DECLA_INTERMITTENTS = [
   { societe:"Axel Carre",         event:"Test sol LED / Prépa",       montant:"72,00 €",    echeance:"24/06/2026", retard:true  },
   { societe:"Michael Guibert EI", event:"Stock",                      montant:"1 825,00 €", echeance:"24/06/2026", retard:true  },
