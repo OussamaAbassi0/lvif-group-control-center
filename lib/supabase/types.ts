@@ -1,5 +1,5 @@
 // ⚠️ Auto-généré depuis Supabase — ne pas modifier manuellement
-// Régénéré le 2026-06-23 via MCP generate_typescript_types
+// Régénéré le 2026-06-29 via MCP generate_typescript_types
 
 export type Json =
   | string
@@ -10,6 +10,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       actions_log: {
@@ -138,6 +143,7 @@ export type Database = {
         Row: {
           amount: number | null
           client_name: string | null
+          close_date: string | null
           company_id: string | null
           created_at: string | null
           eway_id: string | null
@@ -155,6 +161,7 @@ export type Database = {
         Insert: {
           amount?: number | null
           client_name?: string | null
+          close_date?: string | null
           company_id?: string | null
           created_at?: string | null
           eway_id?: string | null
@@ -172,6 +179,7 @@ export type Database = {
         Update: {
           amount?: number | null
           client_name?: string | null
+          close_date?: string | null
           company_id?: string | null
           created_at?: string | null
           eway_id?: string | null
@@ -216,9 +224,7 @@ export type Database = {
           title: string
         }
         Insert: {
-          access_level?:
-            | Database["public"]["Enums"]["doc_access_level"][]
-            | null
+          access_level?: Database["public"]["Enums"]["doc_access_level"][] | null
           content: string
           created_at?: string | null
           embedding?: string | null
@@ -229,9 +235,7 @@ export type Database = {
           title: string
         }
         Update: {
-          access_level?:
-            | Database["public"]["Enums"]["doc_access_level"][]
-            | null
+          access_level?: Database["public"]["Enums"]["doc_access_level"][] | null
           content?: string
           created_at?: string | null
           embedding?: string | null
@@ -648,8 +652,7 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Database
-
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
@@ -768,28 +771,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      deal_status: [
-        "prospect",
-        "qualification",
-        "proposition",
-        "negociation",
-        "gagne",
-        "perdu",
-      ],
-      doc_access_level: [
-        "admin",
-        "direction",
-        "commercial",
-        "immo",
-        "compta",
-        "all",
-      ],
-      document_type: ["insurance", "lease", "other"],
-      invoice_status: ["draft", "sent", "paid", "overdue"],
-      invoice_type: ["receivable", "payable"],
-      payment_status: ["paid", "pending", "overdue"],
-      unit_status: ["occupied", "vacant"],
-      user_role: ["admin", "direction", "commercial", "immo", "compta"],
+      deal_status: ["prospect","qualification","proposition","negociation","gagne","perdu"],
+      doc_access_level: ["admin","direction","commercial","immo","compta","all"],
+      document_type: ["insurance","lease","other"],
+      invoice_status: ["draft","sent","paid","overdue"],
+      invoice_type: ["receivable","payable"],
+      payment_status: ["paid","pending","overdue"],
+      unit_status: ["occupied","vacant"],
+      user_role: ["admin","direction","commercial","immo","compta"],
     },
   },
 } as const

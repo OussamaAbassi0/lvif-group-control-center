@@ -29,13 +29,27 @@ type Deal = {
   priority: number | null;
   next_action: string | null;
   next_action_date: string | null;
+  close_date: string | null;
   profiles: { full_name: string | null } | null;
   companies: { short_name: string; name: string } | null;
 };
 
+// Retourne "Juin 2026" depuis "2026-06-01"
+function formatMonthYear(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+}
+
 export default async function CommercialPage() {
   const supabase = await createClient();
   const today = new Date().toISOString().split("T")[0];
+
+  // Premiers et dernier jours du mois courant
+  const now = new Date();
+  const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString().split("T")[0];
+  const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    .toISOString().split("T")[0];
 
   const { data: allDeals } = await supabase
     .from("deals")
@@ -43,15 +57,22 @@ export default async function CommercialPage() {
     .order("priority", { ascending: false })
     .order("next_action_date", { ascending: true });
 
-  const activeDeals   = allDeals?.filter((d) => !["gagne","perdu"].includes(d.status)) ?? [];
-  const overdueDeals  = activeDeals.filter((d) => d.next_action_date && d.next_action_date < today);
-  const todayDeals    = activeDeals.filter((d) => d.next_action_date === today);
-  const noActionDeals = activeDeals.filter((d) => !d.next_action);
-  const ganneDeals    = allDeals?.filter((d) => d.status === "gagne") ?? [];
-  const totalPipeline = activeDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
-  const totalGagne    = ganneDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
+  const activeDeals    = allDeals?.filter((d) => !["gagne","perdu"].includes(d.status)) ?? [];
+  const overdueDeals   = activeDeals.filter((d) => d.next_action_date && d.next_action_date < today);
+  const todayDeals     = activeDeals.filter((d) => d.next_action_date === today);
+  const noActionDeals  = activeDeals.filter((d) => !d.next_action);
+  const ganneDeals     = allDeals?.filter((d) => d.status === "gagne") ?? [];
 
-  const stageOrder    = ["prospect","qualification","proposition","negociation"];
+  // Deals gagnés ce mois (filtrés par close_date)
+  const gagneCeMois = ganneDeals.filter(
+    (d) => d.close_date && d.close_date >= firstDayMonth && d.close_date <= lastDayMonth
+  );
+
+  const totalPipeline   = activeDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
+  const totalGagne      = ganneDeals.reduce((s, d) => s + (d.amount ?? 0), 0);
+  const totalGagneMois  = gagneCeMois.reduce((s, d) => s + (d.amount ?? 0), 0);
+
+  const stageOrder     = ["prospect","qualification","proposition","negociation"];
   const pipelineStages = stageOrder.map((s) => {
     const sd = activeDeals.filter((d) => d.status === s);
     return { status: s, label: STATUS_LABELS[s], count: sd.length, amount: sd.reduce((x,d)=>x+(d.amount??0),0) };
@@ -62,6 +83,8 @@ export default async function CommercialPage() {
     (d) => d.next_action_date && d.next_action_date > today &&
            d.next_action_date <= new Date(Date.now()+7*86400000).toISOString().split("T")[0]
   );
+
+  const moisLabel = formatMonthYear(firstDayMonth);
 
   const card = {
     background:"linear-gradient(160deg,#1b1b1d,#141416)",
@@ -98,17 +121,18 @@ export default async function CommercialPage() {
         )}
       </div>
 
-      {/* ── KPI row ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20 }}>
+      {/* ── KPI row (5 cartes) ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:14, marginBottom:20 }}>
         {[
-          { label:"Actions en retard",      value:overdueDeals.length,           sub:"À traiter maintenant",    alert:overdueDeals.length>0 },
-          { label:"Actions aujourd'hui",     value:todayDeals.length,             sub:"Planifiées ce jour",      alert:false },
-          { label:"Pipeline total",          value:formatCurrency(totalPipeline), sub:`${activeDeals.length} opportunités`, alert:false, lime:true },
-          { label:"CA signé",                value:formatCurrency(totalGagne),    sub:`${ganneDeals.length} deal(s) signés`, alert:false },
+          { label:"Actions en retard",      value:overdueDeals.length,            sub:"À traiter maintenant",           alert:overdueDeals.length>0 },
+          { label:"Actions aujourd'hui",    value:todayDeals.length,              sub:"Planifiées ce jour",              alert:false },
+          { label:"Pipeline total",         value:formatCurrency(totalPipeline),  sub:`${activeDeals.length} opportunités`, alert:false, lime:true },
+          { label:"CA signé (total)",       value:formatCurrency(totalGagne),     sub:`${ganneDeals.length} deal(s) signés`, alert:false },
+          { label:`Signé en ${moisLabel}`,  value:formatCurrency(totalGagneMois), sub:`${gagneCeMois.length} deal(s) ce mois`, alert:false, lime: gagneCeMois.length > 0 },
         ].map((k) => (
           <div key={k.label} style={{
             ...card,
-            borderColor: k.alert ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.05)",
+            borderColor: k.alert ? "rgba(239,68,68,0.3)" : k.lime && (k.value !== "0 €" && k.value !== "0,00 €") ? "rgba(197,247,58,0.2)" : "rgba(255,255,255,0.05)",
             display:"flex", flexDirection:"column", gap:6,
           }}>
             <span style={{ color:"#6b6b70", fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:0.8 }}>
@@ -116,7 +140,7 @@ export default async function CommercialPage() {
             </span>
             <span style={{
               color: k.alert ? "#f87171" : k.lime ? LIME : "#f3f3f4",
-              fontSize:24, fontWeight:700, letterSpacing:-0.5,
+              fontSize:22, fontWeight:700, letterSpacing:-0.5,
             }}>
               {k.value}
             </span>
@@ -157,7 +181,7 @@ export default async function CommercialPage() {
           <div style={{ marginTop:16, paddingTop:14, borderTop:"1px solid rgba(255,255,255,0.06)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div style={{ display:"flex", alignItems:"center", gap:6 }}>
               <span style={{ width:8, height:8, borderRadius:"50%", background:LIME, display:"inline-block" }} />
-              <span style={{ color:"#a3a3a8", fontSize:11, fontWeight:600 }}>Deals signés</span>
+              <span style={{ color:"#a3a3a8", fontSize:11, fontWeight:600 }}>Deals signés (total)</span>
             </div>
             <div>
               <span style={{ color:LIME, fontSize:12, fontWeight:700 }}>{formatCurrency(totalGagne)}</span>
@@ -233,7 +257,38 @@ export default async function CommercialPage() {
         </div>
       </div>
 
-      {/* ── Section labels helper ── */}
+      {/* ── SECTION : Deals gagnés ce mois ── */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+          <span style={{ width:8, height:8, borderRadius:"50%", background:LIME, display:"inline-block", flexShrink:0 }} />
+          <p style={{ color:LIME, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1 }}>
+            Deals gagnés — {moisLabel}
+          </p>
+          <span style={{
+            background:"rgba(197,247,58,0.15)", color:LIME, fontSize:11, fontWeight:700,
+            padding:"2px 10px", borderRadius:20, border:"1px solid rgba(197,247,58,0.3)",
+          }}>
+            {gagneCeMois.length} deal{gagneCeMois.length !== 1 ? "s" : ""} · {formatCurrency(totalGagneMois)}
+          </span>
+        </div>
+
+        {gagneCeMois.length === 0 ? (
+          <div style={{
+            ...card,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            padding:"32px 20px", textAlign:"center", border:"1px dashed rgba(197,247,58,0.15)",
+          }}>
+            <div>
+              <p style={{ color:"#6b6b70", fontSize:14, fontWeight:600 }}>Aucun deal gagné ce mois</p>
+              <p style={{ color:"#4b4b50", fontSize:12, marginTop:5 }}>
+                Les deals passés en "Won" dans eWay apparaîtront ici après la prochaine synchronisation.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <DealTable deals={gagneCeMois} today={today} variant="won" />
+        )}
+      </div>
 
       {/* ── Actions en retard ── */}
       {overdueDeals.length>0 && (
@@ -279,7 +334,13 @@ export default async function CommercialPage() {
   );
 }
 
-function DealTable({ deals, today, variant }: { deals: Deal[]; today: string; variant?: "overdue"|"no-action" }) {
+function DealTable({
+  deals, today, variant,
+}: {
+  deals: Deal[];
+  today: string;
+  variant?: "overdue" | "no-action" | "won";
+}) {
   const tableCard = {
     background:"linear-gradient(160deg,#1b1b1d,#141416)",
     border:"1px solid rgba(255,255,255,0.05)", borderRadius:18, overflow:"hidden",
@@ -302,28 +363,34 @@ function DealTable({ deals, today, variant }: { deals: Deal[]; today: string; va
     perdu:         {bg:"rgba(239,68,68,0.2)",   color:"#fca5a5"},
   };
 
+  const isWonTable = variant === "won";
+
   return (
-    <div style={tableCard}>
+    <div style={{
+      ...tableCard,
+      border: isWonTable ? "1px solid rgba(197,247,58,0.12)" : tableCard.border,
+    }}>
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr>
             <th style={thStyle}>Deal / Client</th>
             <th style={thStyle}>Société</th>
-            <th style={thStyle}>Statut</th>
-            <th style={thStyle}>Prochaine action</th>
+            {!isWonTable && <th style={thStyle}>Statut</th>}
+            {!isWonTable && <th style={thStyle}>Prochaine action</th>}
+            {isWonTable && <th style={thStyle}>Date signature</th>}
             <th style={{...thStyle, textAlign:"right"}}>Montant</th>
-            <th style={{...thStyle, textAlign:"right"}}>Échéance</th>
+            {!isWonTable && <th style={{...thStyle, textAlign:"right"}}>Échéance</th>}
           </tr>
         </thead>
         <tbody>
           {deals.map((deal)=>{
-            const isLate = variant==="overdue"||(deal.next_action_date&&deal.next_action_date<today);
+            const isLate = variant==="overdue"||(deal.next_action_date&&deal.next_action_date<today&&!isWonTable);
             const co = deal.companies;
             const pill = STATUS_PILL[deal.status]||{bg:"rgba(107,107,112,0.2)",color:"#a3a3a8"};
             const dotColor = co ? (COMPANY_DOT[co.short_name]||"#8b8b8f") : "#8b8b8f";
             return (
               <tr key={deal.id} style={{
-                background: isLate ? "rgba(239,68,68,0.04)" : "transparent",
+                background: isLate ? "rgba(239,68,68,0.04)" : isWonTable ? "rgba(197,247,58,0.02)" : "transparent",
               }}>
                 <td style={tdStyle}>
                   <p style={{ color:"#f3f3f4", fontSize:13, fontWeight:600 }}>{deal.title}</p>
@@ -337,30 +404,43 @@ function DealTable({ deals, today, variant }: { deals: Deal[]; today: string; va
                     </div>
                   )}
                 </td>
-                <td style={tdStyle}>
-                  <span style={{
-                    display:"inline-flex", padding:"3px 10px", borderRadius:20,
-                    background:pill.bg, color:pill.color, fontSize:11, fontWeight:600,
-                  }}>
-                    {STATUS_LABELS[deal.status]||deal.status}
-                  </span>
-                </td>
-                <td style={tdStyle}>
-                  {deal.next_action
-                    ? <span style={{ color:"#a3a3a8", fontSize:12 }}>{deal.next_action}</span>
-                    : <span style={{ color:"#ca8a04", fontSize:12, fontStyle:"italic" }}>Aucune action définie</span>
-                  }
-                </td>
+                {!isWonTable && (
+                  <td style={tdStyle}>
+                    <span style={{
+                      display:"inline-flex", padding:"3px 10px", borderRadius:20,
+                      background:pill.bg, color:pill.color, fontSize:11, fontWeight:600,
+                    }}>
+                      {STATUS_LABELS[deal.status]||deal.status}
+                    </span>
+                  </td>
+                )}
+                {!isWonTable && (
+                  <td style={tdStyle}>
+                    {deal.next_action
+                      ? <span style={{ color:"#a3a3a8", fontSize:12 }}>{deal.next_action}</span>
+                      : <span style={{ color:"#ca8a04", fontSize:12, fontStyle:"italic" }}>Aucune action définie</span>
+                    }
+                  </td>
+                )}
+                {isWonTable && (
+                  <td style={tdStyle}>
+                    <span style={{ color:LIME, fontSize:12, fontWeight:600 }}>
+                      {deal.close_date ? formatDate(deal.close_date) : "—"}
+                    </span>
+                  </td>
+                )}
                 <td style={{...tdStyle, textAlign:"right"}}>
-                  <span style={{ color:"#f3f3f4", fontSize:13, fontWeight:700 }}>
+                  <span style={{ color: isWonTable ? LIME : "#f3f3f4", fontSize:13, fontWeight:700 }}>
                     {deal.amount ? formatCurrency(deal.amount) : "—"}
                   </span>
                 </td>
-                <td style={{...tdStyle, textAlign:"right"}}>
-                  <span style={{ color: isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
-                    {deal.next_action_date ? formatDate(deal.next_action_date) : "—"}
-                  </span>
-                </td>
+                {!isWonTable && (
+                  <td style={{...tdStyle, textAlign:"right"}}>
+                    <span style={{ color: isLate?"#f87171":"#8b8b8f", fontSize:11, fontWeight:600 }}>
+                      {deal.next_action_date ? formatDate(deal.next_action_date) : "—"}
+                    </span>
+                  </td>
+                )}
               </tr>
             );
           })}
