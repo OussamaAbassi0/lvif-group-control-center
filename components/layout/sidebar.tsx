@@ -96,11 +96,20 @@ interface NavEntry {
   soon?: boolean;
 }
 
+function SparkleIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"
+        stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
 const nav: NavEntry[] = [
   { href: "/",           Icon: HomeIcon,     roles: ["admin","direction","commercial","immo","compta"], label: "Accueil",    isHome: true },
   { href: "/commercial", Icon: TargetIcon,   roles: ["admin","direction","commercial"],                 label: "Commercial" },
   { href: "/finance",    Icon: WalletIcon,   roles: ["admin","direction","compta"],                     label: "Finance" },
   { href: "/immobilier", Icon: BuildingIcon, roles: ["admin","direction","immo"],                       label: "Immobilier" },
+  { href: "/commercial/ia", Icon: SparkleIcon,  roles: ["admin","direction","commercial"],                 label: "IA Commerciale" },
   { href: "/tjm",        Icon: ChartIcon,    roles: ["admin","direction"],                              label: "Regie TJM", soon: true },
 ];
 
@@ -162,3 +171,5 @@ export function Sidebar({ userRole = "commercial" }: SidebarProps) {
     </aside>
   );
 }
+// IA Icon injected at module level — appended after original file
+
